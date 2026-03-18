@@ -1,4 +1,4 @@
-import { Check, Clock, Eye, Star, Trash2, Undo } from "lucide-react";
+import { Check, Eye, Trash2, Undo } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMedia, type MediaItem } from "../context/MediaContext";

@@ -1,4 +1,4 @@
-import { Check, Clock, Film, ListPlus, MoreHorizontal, Search, Trash2, X } from "lucide-react";
+import { Check, Clock, Film, ListPlus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMedia, type MediaItem } from "../context/MediaContext";
@@ -152,7 +152,6 @@ function AddMediaModal({
   };
 
   const handleAdd = async (item: any) => {
-    const genreMap: Record<number, string> = {};
     try {
       const type = item.media_type === "tv" ? "tv" : "movie";
       const details = await tmdbClient.get(`/${type}/${item.id}`, {

@@ -1,4 +1,4 @@
-import { Film, History, Home, Inbox, LogOut, Menu, Search, User, X } from "lucide-react";
+import { Film, History, Home, LogOut, Menu, Search, User, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
