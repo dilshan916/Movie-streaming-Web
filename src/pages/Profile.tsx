@@ -16,8 +16,17 @@ export default function ProfilePage() {
     const avgRating = rated.length > 0
       ? (rated.reduce((a, m) => a + (m.rating || 0), 0) / rated.length).toFixed(1)
       : "—";
-    const totalRuntime = watched.reduce((a, m) => a + (m.runtime || 0), 0);
-    const runtimeHours = Math.floor(totalRuntime / 60);
+    const totalMinutes = watched.reduce((acc, item) => {
+      if (item.type === "TV Series" && item.numberOfEpisodes) {
+        return acc + ((item.runtime || 0) * item.numberOfEpisodes);
+      }
+      return acc + (item.runtime || 0);
+    }, 0);
+    
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const watchTimeString = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+
     const totalEpisodes = watched.reduce((a, m) => a + (m.numberOfEpisodes || 0), 0);
 
     // Genre distribution
@@ -29,7 +38,7 @@ export default function ProfilePage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    return { watched: watched.length, watchlist: watchlist.length, movies: movies.length, shows: shows.length, avgRating, runtimeHours, totalEpisodes, topGenres };
+    return { watched: watched.length, watchlist: watchlist.length, movies: movies.length, shows: shows.length, avgRating, watchTimeString, totalEpisodes, topGenres };
   }, [media]);
 
   const getInitial = () => {
@@ -104,7 +113,7 @@ export default function ProfilePage() {
         <div className="stat-card">
           <div className="stat-card-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Clock size={22} style={{ color: "var(--success)" }} />
-            {stats.runtimeHours}h
+            {stats.watchTimeString}
           </div>
           <div className="stat-card-label">Total Watch Time</div>
         </div>
