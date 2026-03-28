@@ -1,4 +1,4 @@
-import { Bookmark, Clock, Compass, Home, LogOut, Search, Shuffle, User } from "lucide-react";
+import { Bookmark, Clock, Compass, Home, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
