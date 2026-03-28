@@ -78,7 +78,7 @@ export default function MovieDetailPage() {
   const cast = credits?.cast?.slice(0, 8) || [];
 
   return (
-    <div>
+    <div className="page-padded">
       {/* Back button */}
       <button
         className="btn btn-ghost"

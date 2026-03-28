@@ -144,7 +144,7 @@ export default function BrowsePage() {
   }
 
   return (
-    <>
+    <div className="page-padded">
       <div className="page-header">
         <div className="page-header-left">
           <h1>Browse Movies</h1>
@@ -299,6 +299,6 @@ export default function BrowsePage() {
       <style>{`
         .spinning { animation: spin 0.6s linear infinite; }
       `}</style>
-    </>
+    </div>
   );
 }

@@ -1,7 +1,8 @@
-import { Film, Loader2, Lock, Mail, User } from "lucide-react";
-import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import tmdbClient, { IMAGE_BASE_URL } from "../lib/tmdb";
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState("");
@@ -10,8 +11,26 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [bgPosters, setBgPosters] = useState<string[]>([]);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchPosters();
+  }, []);
+
+  const fetchPosters = async () => {
+    try {
+      const res = await tmdbClient.get("/trending/all/day");
+      const posters = (res.data.results || [])
+        .filter((m: any) => m.poster_path)
+        .map((m: any) => `${IMAGE_BASE_URL}${m.poster_path}`)
+        .slice(0, 24);
+      setBgPosters(posters);
+    } catch {
+      // Silently fail
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,88 +59,85 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <div className="auth-brand-icon">
-            <Film size={32} color="#fff" />
-          </div>
-          <h1>Create Account</h1>
-          <p>Join My Watchlist today</p>
-        </div>
+    <div className="nf-auth-page">
+      {/* Background poster grid */}
+      <div className="nf-auth-bg">
+        {bgPosters.map((src, i) => (
+          <img key={i} src={src} alt="" className="nf-auth-bg-poster" loading="lazy" />
+        ))}
+      </div>
+      <div className="nf-auth-bg-overlay" />
 
-        <form className="auth-form" onSubmit={handleSignup}>
-          {error && <div className="auth-error">{error}</div>}
+      {/* Logo */}
+      <div className="nf-auth-logo">
+        <span className="nf-auth-logo-icon">W</span>
+        <span className="nf-auth-logo-text">MY WATCHLIST</span>
+      </div>
 
-          <div className="input-group">
-            <label htmlFor="signup-name">Display Name</label>
-            <div style={{ position: "relative" }}>
-              <User size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="signup-name"
-                type="text"
-                className="input-field input-with-icon"
-                placeholder="Your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* Form Card */}
+      <div className="nf-auth-card">
+        <h1 className="nf-auth-title">Sign Up</h1>
 
-          <div className="input-group">
-            <label htmlFor="signup-email">Email</label>
-            <div style={{ position: "relative" }}>
-              <Mail size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="signup-email"
-                type="email"
-                className="input-field input-with-icon"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
+        <form className="nf-auth-form" onSubmit={handleSignup}>
+          {error && <div className="nf-auth-error">{error}</div>}
+
+          <div className="nf-input-wrap">
+            <input
+              id="signup-name"
+              type="text"
+              className="nf-input"
+              placeholder=" "
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <label htmlFor="signup-name" className="nf-input-label">Display Name</label>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="signup-password">Password</label>
-            <div style={{ position: "relative" }}>
-              <Lock size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="signup-password"
-                type="password"
-                className="input-field input-with-icon"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+          <div className="nf-input-wrap">
+            <input
+              id="signup-email"
+              type="email"
+              className="nf-input"
+              placeholder=" "
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <label htmlFor="signup-email" className="nf-input-label">Email</label>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="signup-confirm">Confirm Password</label>
-            <div style={{ position: "relative" }}>
-              <Lock size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="signup-confirm"
-                type="password"
-                className="input-field input-with-icon"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
+          <div className="nf-input-wrap">
+            <input
+              id="signup-password"
+              type="password"
+              className="nf-input"
+              placeholder=" "
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <label htmlFor="signup-password" className="nf-input-label">Password</label>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+          <div className="nf-input-wrap">
+            <input
+              id="signup-confirm"
+              type="password"
+              className="nf-input"
+              placeholder=" "
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+            <label htmlFor="signup-confirm" className="nf-input-label">Confirm Password</label>
+          </div>
+
+          <button type="submit" className="nf-auth-btn" disabled={loading}>
             {loading ? <Loader2 size={20} className="spinning" /> : "Create Account"}
           </button>
         </form>
 
-        <div className="auth-footer">
-          Already have an account?{" "}
-          <Link to="/login">Sign In</Link>
+        <div className="nf-auth-footer">
+          <span>Already have an account? </span>
+          <Link to="/login" className="nf-auth-link">Sign in now.</Link>
         </div>
       </div>
 

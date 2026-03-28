@@ -31,7 +31,7 @@ export default function WatchlistPage() {
   };
 
   return (
-    <>
+    <div className="page-padded">
       <div className="page-header">
         <div className="page-header-left">
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>What's next?</p>
@@ -114,7 +114,7 @@ export default function WatchlistPage() {
       )}
 
       {showAddModal && <AddMediaModal onClose={() => setShowAddModal(false)} onAdd={addMedia} />}
-    </>
+    </div>
   );
 }
 

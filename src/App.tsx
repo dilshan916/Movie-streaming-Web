@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { MediaProvider } from "./context/MediaContext";
 import BrowsePage from "./pages/Browse";
 import HistoryPage from "./pages/History";
+import HomePage from "./pages/Home";
 import LoginPage from "./pages/Login";
 import MovieDetailPage from "./pages/MovieDetail";
 import ProfilePage from "./pages/Profile";
@@ -69,9 +70,10 @@ function AppRoutes() {
       <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
 
       {/* Protected routes */}
-      <Route path="/" element={<ProtectedRoute><WatchlistPage /></ProtectedRoute>} />
-      <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/browse" element={<ProtectedRoute><BrowsePage /></ProtectedRoute>} />
+      <Route path="/watchlist" element={<ProtectedRoute><WatchlistPage /></ProtectedRoute>} />
+      <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/movie/:id" element={<ProtectedRoute><MovieDetailPage /></ProtectedRoute>} />
 

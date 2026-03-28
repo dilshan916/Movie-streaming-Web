@@ -36,7 +36,7 @@ export default function HistoryPage() {
     : "—";
 
   return (
-    <>
+    <div className="page-padded">
       <div className="page-header">
         <div className="page-header-left">
           <h1>Watch History</h1>
@@ -156,6 +156,6 @@ export default function HistoryPage() {
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }

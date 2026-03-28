@@ -1,15 +1,36 @@
-import { Film, Loader2, Lock, Mail } from "lucide-react";
-import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import tmdbClient, { IMAGE_BASE_URL } from "../lib/tmdb";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [bgPosters, setBgPosters] = useState<string[]>([]);
   const { signIn, resetPassword } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchPosters();
+  }, []);
+
+  const fetchPosters = async () => {
+    try {
+      const res = await tmdbClient.get("/movie/popular", {
+        params: { language: "en-US", page: 1 },
+      });
+      const posters = (res.data.results || [])
+        .filter((m: any) => m.poster_path)
+        .map((m: any) => `${IMAGE_BASE_URL}${m.poster_path}`)
+        .slice(0, 24);
+      setBgPosters(posters);
+    } catch {
+      // Silently fail — the background is decorative
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,69 +65,76 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <div className="auth-brand-icon">
-            <Film size={32} color="#fff" />
-          </div>
-          <h1>My Watchlist</h1>
-          <p>Sign in to continue</p>
-        </div>
+    <div className="nf-auth-page">
+      {/* Background poster grid */}
+      <div className="nf-auth-bg">
+        {bgPosters.map((src, i) => (
+          <img key={i} src={src} alt="" className="nf-auth-bg-poster" loading="lazy" />
+        ))}
+      </div>
+      <div className="nf-auth-bg-overlay" />
 
-        <form className="auth-form" onSubmit={handleLogin}>
-          {error && <div className="auth-error">{error}</div>}
+      {/* Logo */}
+      <div className="nf-auth-logo">
+        <span className="nf-auth-logo-icon">W</span>
+        <span className="nf-auth-logo-text">MY WATCHLIST</span>
+      </div>
 
-          <div className="input-group">
-            <label htmlFor="login-email">Email</label>
-            <div style={{ position: "relative" }}>
-              <Mail size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="login-email"
-                type="email"
-                className="input-field input-with-icon"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-          </div>
+      {/* Form Card */}
+      <div className="nf-auth-card">
+        <h1 className="nf-auth-title">Sign In</h1>
 
-          <div className="input-group">
-            <label htmlFor="login-password">Password</label>
-            <div style={{ position: "relative" }}>
-              <Lock size={18} className="input-icon" style={{ top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                id="login-password"
-                type="password"
-                className="input-field input-with-icon"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
+        <form className="nf-auth-form" onSubmit={handleLogin}>
+          {error && <div className="nf-auth-error">{error}</div>}
+
+          <div className="nf-input-wrap">
+            <input
+              id="login-email"
+              type="email"
+              className="nf-input"
+              placeholder=" "
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <label htmlFor="login-email" className="nf-input-label">Email</label>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="nf-input-wrap">
+            <input
+              id="login-password"
+              type="password"
+              className="nf-input"
+              placeholder=" "
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <label htmlFor="login-password" className="nf-input-label">Password</label>
+          </div>
+
+          <button type="submit" className="nf-auth-btn" disabled={loading}>
+            {loading ? <Loader2 size={20} className="spinning" /> : "Sign In"}
+          </button>
+
+          <div className="nf-auth-options">
+            <label className="nf-checkbox-label">
+              <input type="checkbox" className="nf-checkbox" defaultChecked />
+              <span>Remember me</span>
+            </label>
             <button
               type="button"
               onClick={handleForgotPassword}
-              style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+              className="nf-forgot-link"
             >
-              Forgot Password?
+              Need help?
             </button>
           </div>
-
-          <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-            {loading ? <Loader2 size={20} className="spinning" /> : "Sign In"}
-          </button>
         </form>
 
-        <div className="auth-footer">
-          Don't have an account?{" "}
-          <Link to="/signup">Sign Up</Link>
+        <div className="nf-auth-footer">
+          <span>New to My Watchlist? </span>
+          <Link to="/signup" className="nf-auth-link">Sign up now.</Link>
         </div>
       </div>
 

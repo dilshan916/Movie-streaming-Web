@@ -1,11 +1,13 @@
-import { BarChart3, Clock, Film, LogOut, Star, Tv } from "lucide-react";
+import { BookmarkCheck, Calendar, Clock, Edit2, Film, LogOut, Play, Star, Tv, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useMedia } from "../context/MediaContext";
 
 export default function ProfilePage() {
   const { user, signOutUser } = useAuth();
   const { media } = useMedia();
+  const navigate = useNavigate();
 
   const stats = useMemo(() => {
     const watched = media.filter((m) => m.status === "Watched");
@@ -22,7 +24,7 @@ export default function ProfilePage() {
       }
       return acc + (item.runtime || 0);
     }, 0);
-    
+
     const days = Math.floor(totalMinutes / (24 * 60));
     const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
     const watchTimeString = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
@@ -38,7 +40,23 @@ export default function ProfilePage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    return { watched: watched.length, watchlist: watchlist.length, movies: movies.length, shows: shows.length, avgRating, watchTimeString, totalEpisodes, topGenres };
+    // Recently watched (last 6)
+    const recentlyWatched = watched
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 6);
+
+    return {
+      watched: watched.length,
+      watchlist: watchlist.length,
+      movies: movies.length,
+      shows: shows.length,
+      avgRating,
+      watchTimeString,
+      totalEpisodes,
+      topGenres,
+      recentlyWatched,
+      totalLibrary: media.length,
+    };
   }, [media]);
 
   const getInitial = () => {
@@ -47,129 +65,182 @@ export default function ProfilePage() {
     return "?";
   };
 
+  const memberSince = user?.metadata?.creationTime
+    ? new Date(user.metadata.creationTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : "—";
+
   return (
-    <>
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1>Profile</h1>
+    <div className="nf-profile">
+      {/* Profile Hero Banner */}
+      <div className="nf-profile-hero">
+        <div className="nf-profile-hero-gradient" />
+        <div className="nf-profile-hero-content">
+          <div className="nf-profile-avatar-section">
+            <div className="nf-profile-avatar">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" />
+              ) : (
+                <span>{getInitial()}</span>
+              )}
+              <button className="nf-profile-avatar-edit" title="Edit profile">
+                <Edit2 size={14} />
+              </button>
+            </div>
+            <div className="nf-profile-info">
+              <h1 className="nf-profile-name">{user?.displayName || "User"}</h1>
+              <p className="nf-profile-email">{user?.email}</p>
+              <div className="nf-profile-meta">
+                <span className="nf-profile-meta-item">
+                  <Calendar size={14} /> Member since {memberSince}
+                </span>
+                <span className="nf-profile-meta-item">
+                  <Film size={14} /> {stats.totalLibrary} titles in library
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="nf-profile-hero-actions">
+            <button className="nf-profile-btn-manage" onClick={() => navigate("/watchlist")}>
+              <BookmarkCheck size={18} /> My List
+            </button>
+            <button className="nf-profile-btn-signout" onClick={signOutUser}>
+              <LogOut size={18} /> Sign Out
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className="card" style={{ padding: 32, marginBottom: 32, display: "flex", alignItems: "center", gap: 24, border: "1px solid var(--border)" }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: "50%",
-          background: "linear-gradient(135deg, var(--accent), #ff6b6b)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 32, fontWeight: 800, overflow: "hidden", flexShrink: 0,
-        }}>
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            getInitial()
-          )}
+      {/* Stats Overview */}
+      <div className="nf-profile-body">
+        <div className="nf-profile-stats-grid">
+          <div className="nf-stat-card nf-stat-movies">
+            <div className="nf-stat-icon"><Film size={24} /></div>
+            <div className="nf-stat-value">{stats.movies}</div>
+            <div className="nf-stat-label">Movies Watched</div>
+            <div className="nf-stat-glow" />
+          </div>
+          <div className="nf-stat-card nf-stat-shows">
+            <div className="nf-stat-icon"><Tv size={24} /></div>
+            <div className="nf-stat-value">{stats.shows}</div>
+            <div className="nf-stat-label">TV Shows</div>
+            <div className="nf-stat-glow" />
+          </div>
+          <div className="nf-stat-card nf-stat-rating">
+            <div className="nf-stat-icon"><Star size={24} /></div>
+            <div className="nf-stat-value">{stats.avgRating}</div>
+            <div className="nf-stat-label">Avg Rating</div>
+            <div className="nf-stat-glow" />
+          </div>
+          <div className="nf-stat-card nf-stat-time">
+            <div className="nf-stat-icon"><Clock size={24} /></div>
+            <div className="nf-stat-value">{stats.watchTimeString}</div>
+            <div className="nf-stat-label">Watch Time</div>
+            <div className="nf-stat-glow" />
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-            {user?.displayName || "User"}
-          </h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>{user?.email}</p>
-          <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
-            Member since {user?.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "—"}
-          </p>
-        </div>
-        <button className="btn btn-secondary" onClick={signOutUser}>
-          <LogOut size={16} /> Sign Out
-        </button>
-      </div>
 
-      {/* Stats Grid */}
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
-        <BarChart3 size={20} style={{ marginRight: 8, verticalAlign: "middle" }} />
-        Your Stats
-      </h3>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Film size={22} style={{ color: "var(--accent)" }} />
-            {stats.movies}
+        {/* Quick Stats Row */}
+        <div className="nf-quick-stats">
+          <div className="nf-quick-stat">
+            <span className="nf-quick-stat-num">{stats.watched}</span>
+            <span className="nf-quick-stat-text">Completed</span>
           </div>
-          <div className="stat-card-label">Movies Watched</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Tv size={22} style={{ color: "var(--accent)" }} />
-            {stats.shows}
+          <div className="nf-quick-divider" />
+          <div className="nf-quick-stat">
+            <span className="nf-quick-stat-num">{stats.watchlist}</span>
+            <span className="nf-quick-stat-text">In Watchlist</span>
           </div>
-          <div className="stat-card-label">TV Shows Watched</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Star size={22} style={{ color: "var(--warning)" }} />
-            {stats.avgRating}
+          <div className="nf-quick-divider" />
+          <div className="nf-quick-stat">
+            <span className="nf-quick-stat-num">{stats.totalEpisodes}</span>
+            <span className="nf-quick-stat-text">Episodes</span>
           </div>
-          <div className="stat-card-label">Average Rating</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Clock size={22} style={{ color: "var(--success)" }} />
-            {stats.watchTimeString}
+          <div className="nf-quick-divider" />
+          <div className="nf-quick-stat">
+            <span className="nf-quick-stat-num">{stats.totalLibrary}</span>
+            <span className="nf-quick-stat-text">In Library</span>
           </div>
-          <div className="stat-card-label">Total Watch Time</div>
         </div>
-      </div>
 
-      {/* Summary stats */}
-      <div className="stats-grid" style={{ marginTop: 0 }}>
-        <div className="stat-card">
-          <div className="stat-card-value">{stats.watched}</div>
-          <div className="stat-card-label">Total Completed</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value">{stats.watchlist}</div>
-          <div className="stat-card-label">In Watchlist</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value">{stats.totalEpisodes}</div>
-          <div className="stat-card-label">Episodes Watched</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-value">{media.length}</div>
-          <div className="stat-card-label">Total in Library</div>
-        </div>
-      </div>
+        {/* Two column layout */}
+        <div className="nf-profile-columns">
+          {/* Favorite Genres */}
+          <div className="nf-profile-section">
+            <h2 className="nf-section-heading">
+              <TrendingUp size={20} /> Favorite Genres
+            </h2>
+            {stats.topGenres.length > 0 ? (
+              <div className="nf-genre-bars">
+                {stats.topGenres.map(([genre, count], idx) => {
+                  const maxCount = stats.topGenres[0][1] as number;
+                  const percentage = (count as number / maxCount) * 100;
+                  const colors = [
+                    "linear-gradient(90deg, #E50914, #ff4d56)",
+                    "linear-gradient(90deg, #b20710, #E50914)",
+                    "linear-gradient(90deg, #831010, #b20710)",
+                    "linear-gradient(90deg, #5c0a0a, #831010)",
+                    "linear-gradient(90deg, #3d0707, #5c0a0a)",
+                  ];
+                  return (
+                    <div key={genre} className="nf-genre-row">
+                      <span className="nf-genre-rank">#{idx + 1}</span>
+                      <span className="nf-genre-name">{genre}</span>
+                      <div className="nf-genre-bar-track">
+                        <div
+                          className="nf-genre-bar-fill"
+                          style={{ width: `${percentage}%`, background: colors[idx] || colors[4] }}
+                        >
+                          <span className="nf-genre-count">{count as number}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="nf-empty-text">Start watching to discover your genres!</p>
+            )}
+          </div>
 
-      {/* Top Genres */}
-      {stats.topGenres.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Favorite Genres</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {stats.topGenres.map(([genre, count]) => {
-              const maxCount = stats.topGenres[0][1] as number;
-              const percentage = (count as number / maxCount) * 100;
-              return (
-                <div key={genre} style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <span style={{ width: 100, fontSize: 14, fontWeight: 500, flexShrink: 0 }}>{genre}</span>
-                  <div style={{ flex: 1, height: 28, background: "var(--bg-card)", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                    <div style={{
-                      height: "100%",
-                      width: `${percentage}%`,
-                      background: "linear-gradient(90deg, var(--accent), #ff4d56)",
-                      borderRadius: "var(--radius-full)",
-                      transition: "width 0.8s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      paddingLeft: 12,
-                    }}>
-                      <span style={{ fontSize: 11, fontWeight: 700 }}>{count as number}</span>
+          {/* Recently Watched */}
+          <div className="nf-profile-section">
+            <h2 className="nf-section-heading">
+              <Play size={20} /> Recently Watched
+            </h2>
+            {stats.recentlyWatched.length > 0 ? (
+              <div className="nf-recent-grid">
+                {stats.recentlyWatched.map((item) => (
+                  <div
+                    key={item.id}
+                    className="nf-recent-card"
+                    onClick={() => {
+                      const id = item.tmdbId || item.title;
+                      navigate(`/movie/${id}?type=${item.type === "TV Series" ? "tv" : "movie"}`);
+                    }}
+                  >
+                    <img
+                      src={item.poster || "https://via.placeholder.com/120x180/141414/666?text=?"}
+                      alt={item.title}
+                      className="nf-recent-poster"
+                    />
+                    <div className="nf-recent-overlay">
+                      <Play size={20} fill="#fff" />
+                    </div>
+                    <div className="nf-recent-info">
+                      <span className="nf-recent-title">{item.title}</span>
+                      {item.rating && (
+                        <span className="nf-recent-rating">★ {item.rating}</span>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            ) : (
+              <p className="nf-empty-text">Nothing watched yet — time to binge!</p>
+            )}
           </div>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }

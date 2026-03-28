@@ -1,20 +1,20 @@
-import { Film, History, Home, LogOut, Menu, Search, User, X } from "lucide-react";
+import { Bookmark, Clock, Compass, Home, LogOut, Search, Shuffle, User } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const navLinks = [
-  { path: "/", label: "Watchlist", icon: Home },
-  { path: "/history", label: "History", icon: History },
-  { path: "/browse", label: "Browse", icon: Search },
+  { path: "/", label: "Home", icon: Home },
+  { path: "/browse", label: "Browse", icon: Compass },
+  { path: "/watchlist", label: "Watchlist", icon: Bookmark },
+  { path: "/history", label: "History", icon: Clock },
   { path: "/profile", label: "Profile", icon: User },
-  // { path: "/inbox", label: "Inbox", icon: Inbox },
 ];
 
 export default function Sidebar() {
   const { user, signOutUser } = useAuth();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const getInitial = () => {
     if (user?.displayName) return user.displayName[0].toUpperCase();
@@ -24,80 +24,60 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        className="mobile-toggle btn-icon"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
+      {/* Slim sidebar */}
+      <aside
+        className={`netflix-sidebar ${expanded ? "expanded" : ""}`}
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
       >
-        <Menu size={20} />
-      </button>
-
-      {/* Overlay for mobile */}
-      {mobileOpen && (
-        <div
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-            zIndex: 99, transition: "opacity 0.2s",
-          }}
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
-        <div className="sidebar-brand">
-          <div className="sidebar-brand-icon">
-            <Film size={22} color="#fff" />
+        {/* Logo */}
+        <div className="ns-logo">
+          <div className="ns-logo-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+              <path d="M4 4l4.5 16L12 8l3.5 12L20 4" stroke="#E50914" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <span className="sidebar-brand-text">My Watchlist</span>
-          {mobileOpen && (
-            <button
-              onClick={() => setMobileOpen(false)}
-              style={{ marginLeft: "auto", color: "var(--text-muted)" }}
-              aria-label="Close menu"
-            >
-              <X size={20} />
-            </button>
-          )}
+          {expanded && <span className="ns-logo-text">MY WATCHLIST</span>}
         </div>
 
-        <nav className="sidebar-nav">
-          <span className="sidebar-section-title">Menu</span>
-          {navLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`sidebar-link ${location.pathname === link.path ? "active" : ""}`}
-              onClick={() => setMobileOpen(false)}
-            >
-              <link.icon size={20} />
-              {link.label}
-            </Link>
-          ))}
+        {/* Nav links */}
+        <nav className="ns-nav">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.path ||
+              (link.path === "/" && location.pathname === "/") ||
+              (link.path === "/browse" && location.pathname.startsWith("/movie/"));
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`ns-link ${isActive ? "active" : ""}`}
+                title={link.label}
+              >
+                <link.icon size={22} />
+                {expanded && <span className="ns-link-label">{link.label}</span>}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="sidebar-user-avatar">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="" />
-              ) : (
-                getInitial()
-              )}
-            </div>
-            <div className="sidebar-user-info">
-              <div className="sidebar-user-name">{user?.displayName || "User"}</div>
-              <div className="sidebar-user-email">{user?.email}</div>
-            </div>
-          </div>
+        {/* Bottom section */}
+        <div className="ns-bottom">
           <button
-            className="sidebar-link"
+            className={`ns-link`}
             onClick={signOutUser}
-            style={{ width: "100%", marginTop: 8, color: "var(--danger)" }}
+            title="Sign Out"
           >
-            <LogOut size={18} />
-            Sign Out
+            <LogOut size={22} />
+            {expanded && <span className="ns-link-label">Sign Out</span>}
           </button>
+
+          <div className="ns-avatar" title={user?.displayName || user?.email || "User"}>
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="" />
+            ) : (
+              <span>{getInitial()}</span>
+            )}
+          </div>
         </div>
       </aside>
     </>
