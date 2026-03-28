@@ -1,4 +1,4 @@
-import { ChevronRight, Info, Play, Plus, Star } from "lucide-react";
+import { Check, ChevronRight, Info, Plus, Star } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMedia } from "../context/MediaContext";
@@ -108,6 +108,17 @@ export default function HomePage() {
     });
   };
 
+  const quickWatched = async (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await addMedia({
+      title: item.title || item.name,
+      type: item.media_type === "tv" ? "TV Series" : "Movie",
+      status: "Watched",
+      poster: item.poster_path ? `${IMAGE_BASE_URL}${item.poster_path}` : undefined,
+      tmdbId: item.id,
+    });
+  };
+
   const hero = heroItems[heroIndex];
 
   if (loading) {
@@ -168,9 +179,9 @@ export default function HomePage() {
             <div className="hero-banner-actions">
               <button
                 className="hero-btn hero-btn-play"
-                onClick={() => navigateToDetails(hero)}
+                onClick={(e) => quickWatched(hero, e)}
               >
-                <Play size={20} fill="#fff" /> Play
+                <Check size={20} /> Watched
               </button>
               <button
                 className="hero-btn hero-btn-trailer"
@@ -211,6 +222,7 @@ export default function HomePage() {
           items={row.items}
           onItemClick={navigateToDetails}
           onQuickAdd={quickAdd}
+          onWatched={quickWatched}
         />
       ))}
     </div>
@@ -226,11 +238,13 @@ function MovieRowComponent({
   items,
   onItemClick,
   onQuickAdd,
+  onWatched,
 }: {
   title: string;
   items: any[];
   onItemClick: (item: any) => void;
   onQuickAdd: (item: any, e: React.MouseEvent) => void;
+  onWatched: (item: any, e: React.MouseEvent) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -303,8 +317,8 @@ function MovieRowComponent({
                   </div>
                 </div>
                 <div className="row-card-hover-actions">
-                  <button className="row-card-btn play" onClick={(e) => { e.stopPropagation(); onItemClick(item); }}>
-                    <Play size={14} fill="#000" stroke="#000" />
+                  <button className="row-card-btn play" title="Mark as Watched" onClick={(e) => onWatched(item, e)}>
+                    <Check size={14} color="#000" strokeWidth={3} />
                   </button>
                   <button className="row-card-btn add" onClick={(e) => onQuickAdd(item, e)}>
                     <Plus size={14} />

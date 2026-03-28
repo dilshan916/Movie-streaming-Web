@@ -1,4 +1,4 @@
-import { Loader2, Play, Plus, Star } from "lucide-react";
+import { Info, Loader2, Plus, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMedia } from "../context/MediaContext";
@@ -179,7 +179,7 @@ export default function BrowsePage() {
             <p className="hero-overview">{heroItem.overview}</p>
             <div className="hero-actions">
               <button className="btn btn-primary" onClick={() => navigateToDetails(heroItem)}>
-                <Play size={16} /> More Info
+                <Info size={16} /> More Info
               </button>
               <button className="btn btn-secondary" onClick={(e) => quickAdd(heroItem, e)}>
                 <Plus size={16} /> Watchlist

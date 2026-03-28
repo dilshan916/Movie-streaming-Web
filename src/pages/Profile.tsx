@@ -1,4 +1,4 @@
-import { BookmarkCheck, Calendar, Clock, Edit2, Film, LogOut, Play, Star, Tv, TrendingUp } from "lucide-react";
+import { BookmarkCheck, Calendar, Clock, Edit2, Eye, Film, LogOut, Star, Tv, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -205,7 +205,7 @@ export default function ProfilePage() {
           {/* Recently Watched */}
           <div className="nf-profile-section">
             <h2 className="nf-section-heading">
-              <Play size={20} /> Recently Watched
+              <Clock size={20} /> Recently Watched
             </h2>
             {stats.recentlyWatched.length > 0 ? (
               <div className="nf-recent-grid">
@@ -224,7 +224,7 @@ export default function ProfilePage() {
                       className="nf-recent-poster"
                     />
                     <div className="nf-recent-overlay">
-                      <Play size={20} fill="#fff" />
+                      <Eye size={20} color="#fff" />
                     </div>
                     <div className="nf-recent-info">
                       <span className="nf-recent-title">{item.title}</span>
