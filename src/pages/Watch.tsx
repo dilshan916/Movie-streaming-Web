@@ -21,7 +21,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import tmdbClient, { IMAGE_BASE_URL } from "../lib/tmdb";
 import { getDirectStreamUrl } from "../lib/stream";
 
-const VIDSRC_BASE = "https://vidsrcme.ru/embed";
+
 
 export default function WatchPage() {
   const { id } = useParams();
