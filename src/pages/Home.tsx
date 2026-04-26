@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Info, Plus, Star } from "lucide-react";
+import { Check, ChevronRight, Info, Play, Plus, Star } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMedia } from "../context/MediaContext";
@@ -179,9 +179,9 @@ export default function HomePage() {
             <div className="hero-banner-actions">
               <button
                 className="hero-btn hero-btn-play"
-                onClick={(e) => quickWatched(hero, e)}
+                onClick={() => navigate(`/watch/${hero.id}?type=${hero.media_type}`)}
               >
-                <Check size={20} /> Watched
+                <Play size={20} fill="currentColor" /> Play
               </button>
               <button
                 className="hero-btn hero-btn-trailer"

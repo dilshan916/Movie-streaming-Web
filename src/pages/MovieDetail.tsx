@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, Plus, Star, Tv } from "lucide-react";
+import { ArrowLeft, Clock, Play, Plus, Star, Tv } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMedia } from "../context/MediaContext";
@@ -157,6 +157,13 @@ export default function MovieDetailPage() {
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={() => navigate(`/watch/${id}?type=${type}`)}
+              style={{ gap: 10, fontSize: 16, padding: "14px 32px" }}
+            >
+              <Play size={20} fill="white" /> Watch Now
+            </button>
             {!isInLibrary ? (
               <button className="btn btn-secondary btn-lg" onClick={handleAdd}>
                 <Plus size={18} /> Add to Watchlist

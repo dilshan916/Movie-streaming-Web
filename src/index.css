@@ -1219,7 +1219,7 @@ img {
 }
 
 /* ============================================
-   NETFLIX AUTH PAGES
+   NETFLIX AUTH PAGES — Cinematic redesign
    ============================================ */
 
 .nf-auth-page {
@@ -1232,85 +1232,131 @@ img {
   background: #000;
 }
 
-/* Poster grid background */
+/* ---- Animated poster-grid background ---- */
 .nf-auth-bg {
   position: absolute;
-  inset: -20px;
+  inset: -40px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  opacity: 0.30;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.nf-auth-bg-track {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
-  opacity: 0.25;
-  transform: rotate(-2deg) scale(1.1);
-  z-index: 0;
+  gap: 6px;
+  animation: posterScroll 90s linear infinite;
+  width: 120%;
+}
+
+.nf-auth-bg-track--reverse {
+  animation-direction: reverse;
+}
+
+@keyframes posterScroll {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
 }
 
 .nf-auth-bg-poster {
   width: 100%;
   aspect-ratio: 2/3;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  filter: brightness(0.8) saturate(0.9);
+  transition: filter 0.4s ease;
 }
 
 .nf-auth-bg-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.3) 0%,
-    rgba(0, 0, 0, 0.85) 50%,
-    rgba(0, 0, 0, 0.95) 100%
-  );
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 60%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.92) 100%);
   z-index: 1;
 }
 
-/* Logo */
-.nf-auth-logo {
+/* ---- Top header bar ---- */
+.nf-auth-header {
   position: fixed;
-  top: 24px;
-  left: 32px;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 40px;
+  z-index: 10;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+}
+
+.nf-auth-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 10;
 }
 
 .nf-auth-logo-icon {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   background: var(--accent);
   color: #fff;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(229, 9, 20, 0.35);
 }
 
 .nf-auth-logo-text {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
-  color: var(--accent);
-  letter-spacing: 3px;
+  color: #fff;
+  letter-spacing: 4px;
 }
 
-/* Auth card */
+/* ---- Auth card ---- */
 .nf-auth-card {
   width: 100%;
-  max-width: 450px;
+  max-width: 460px;
   padding: 60px 68px 48px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 8px;
   position: relative;
   z-index: 5;
+  animation: cardSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nf-auth-card--signup {
+  max-width: 480px;
+}
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .nf-auth-title {
   font-size: 32px;
   font-weight: 700;
-  margin-bottom: 28px;
+  margin-bottom: 8px;
   letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.nf-auth-subtitle {
+  font-size: 15px;
+  color: #8c8c8c;
+  margin-bottom: 24px;
+  font-weight: 400;
+}
+
+.nf-auth-title + .nf-auth-form {
+  margin-top: 28px;
 }
 
 .nf-auth-form {
@@ -1319,26 +1365,32 @@ img {
   gap: 16px;
 }
 
-/* Floating label input */
+/* ---- Floating label inputs ---- */
 .nf-input-wrap {
   position: relative;
 }
 
 .nf-input {
   width: 100%;
-  padding: 24px 16px 8px;
+  padding: 24px 44px 8px 16px;
   background: #333;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   color: #fff;
   font-size: 16px;
   font-family: inherit;
   outline: none;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.nf-input:hover {
+  background: #3b3b3b;
 }
 
 .nf-input:focus {
   background: #454545;
+  border-bottom-color: var(--accent);
 }
 
 .nf-input-label {
@@ -1360,7 +1412,37 @@ img {
   color: #b3b3b3;
 }
 
-/* Auth button */
+.nf-input-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  pointer-events: none;
+}
+
+.nf-input-toggle {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+
+.nf-input-toggle:hover {
+  color: #fff;
+}
+
+/* ---- Auth button ---- */
 .nf-auth-btn {
   width: 100%;
   padding: 16px;
@@ -1372,46 +1454,94 @@ img {
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  margin-top: 16px;
-  transition: all 0.2s ease;
+  margin-top: 20px;
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   letter-spacing: 0.3px;
+  box-shadow: 0 4px 20px rgba(229, 9, 20, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.nf-auth-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.nf-auth-btn:hover::after {
+  transform: translateX(100%);
 }
 
 .nf-auth-btn:hover {
   background: var(--accent-hover);
+  box-shadow: 0 6px 28px rgba(229, 9, 20, 0.45);
+  transform: translateY(-1px);
+}
+
+.nf-auth-btn:active {
+  transform: translateY(0);
 }
 
 .nf-auth-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  transform: none;
 }
 
-/* Options row */
+/* ---- Options row ---- */
 .nf-auth-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .nf-checkbox-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
   color: #b3b3b3;
   cursor: pointer;
+  user-select: none;
 }
 
 .nf-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.nf-checkbox-custom {
   width: 18px;
   height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
+  border: 2px solid #737373;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.nf-checkbox:checked + .nf-checkbox-custom {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.nf-checkbox:checked + .nf-checkbox-custom::after {
+  content: '✓';
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .nf-forgot-link {
@@ -1429,32 +1559,150 @@ img {
   text-decoration: underline;
 }
 
-/* Auth error */
-.nf-auth-error {
-  padding: 12px 16px;
-  background: rgba(229, 57, 53, 0.15);
-  border: 1px solid rgba(229, 57, 53, 0.3);
-  border-radius: 6px;
-  color: #e53935;
-  font-size: 14px;
-  font-weight: 500;
+/* ---- Divider ---- */
+.nf-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
 }
 
-/* Auth footer */
+.nf-auth-divider::before,
+.nf-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #333;
+}
+
+.nf-auth-divider span {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+/* ---- Social login ---- */
+.nf-auth-social {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nf-social-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nf-social-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* ---- Auth error ---- */
+.nf-auth-error {
+  padding: 12px 16px;
+  background: rgba(229, 57, 53, 0.12);
+  border: 1px solid rgba(229, 57, 53, 0.25);
+  border-left: 3px solid #e53935;
+  border-radius: 6px;
+  color: #ef5350;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: errorShake 0.4s ease;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+/* ---- Auth footer ---- */
 .nf-auth-footer {
-  margin-top: 32px;
+  margin-top: 28px;
   font-size: 16px;
   color: #737373;
 }
 
 .nf-auth-link {
   color: #fff;
-  font-weight: 500;
-  transition: opacity 0.2s;
+  font-weight: 600;
+  transition: color 0.2s;
 }
 
 .nf-auth-link:hover {
   text-decoration: underline;
+}
+
+/* ---- Disclaimer ---- */
+.nf-auth-disclaimer {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #4a4a4a;
+  line-height: 1.5;
+}
+
+.nf-learn-more {
+  color: #4a8fe7;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.nf-learn-more:hover {
+  text-decoration: underline;
+  color: #64b5f6;
+}
+
+/* ---- Password strength ---- */
+.nf-password-strength {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: -4px;
+}
+
+.nf-strength-bars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.nf-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 0.3s ease;
+}
+
+.nf-strength-text {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
 }
 
 /* ============================================
@@ -1720,8 +1968,27 @@ img {
     max-width: 90vw;
   }
 
-  .nf-auth-bg {
+  .nf-auth-bg-track {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .nf-auth-header {
+    padding: 16px 20px;
+  }
+
+  .nf-auth-logo-text {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .nf-auth-logo-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .nf-auth-title {
+    font-size: 26px;
   }
 }
 
@@ -2243,5 +2510,665 @@ img {
 
   .nf-profile-body {
     padding: 24px 20px 80px;
+  }
+}
+
+/* ============================================
+   WATCH / STREAMING PAGE
+   ============================================ */
+
+/* ---- Fullscreen Native Player ---- */
+.watch-player-container {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: none;
+}
+
+.watch-player-container:hover {
+  cursor: default;
+}
+
+.watch-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.watch-buffering {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.watch-spinner {
+  animation: spin 1s linear infinite;
+  color: var(--accent);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Controls Overlay ---- */
+.watch-controls-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.watch-controls-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Top controls */
+.watch-controls-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 32px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent);
+}
+
+.watch-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.watch-back-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.watch-title-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.watch-movie-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.watch-episode-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+/* Center controls */
+.watch-controls-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+}
+
+.watch-seek-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.watch-seek-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
+
+.watch-seek-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: -2px;
+}
+
+.watch-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(229, 9, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(229, 9, 20, 0.4);
+}
+
+.watch-play-btn:hover {
+  background: var(--accent);
+  transform: scale(1.12);
+  box-shadow: 0 12px 40px rgba(229, 9, 20, 0.6);
+}
+
+/* Bottom controls */
+.watch-controls-bottom {
+  padding: 0 32px 24px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5) 60%, transparent);
+  padding-top: 60px;
+}
+
+.watch-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.watch-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  user-select: none;
+}
+
+.watch-time:last-child {
+  text-align: right;
+}
+
+.watch-progress-bar {
+  flex: 1;
+  height: 5px;
+  position: relative;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: height 0.15s ease;
+}
+
+.watch-progress-bar:hover {
+  height: 8px;
+}
+
+.watch-progress-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.watch-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.watch-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(229, 9, 20, 0.5);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.watch-progress-bar:hover .watch-progress-thumb {
+  opacity: 1;
+}
+
+.watch-bottom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watch-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.watch-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.watch-icon-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.watch-volume-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.watch-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.watch-volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- VidSrc Iframe Fallback ---- */
+.watch-iframe-container {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+.watch-iframe-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.watch-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #000;
+}
+
+/* ---- Season/Episode Selection Page ---- */
+.watch-selection-page {
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+}
+
+.watch-selection-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 32px;
+  background: rgba(0, 0, 0, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.watch-selection-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.watch-selection-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.watch-selection-subtitle {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.watch-selection-content {
+  padding: 24px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Loading state */
+.watch-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 20px;
+}
+
+.watch-loading-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #b20710);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(229, 9, 20, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(229, 9, 20, 0.6);
+    transform: scale(1.05);
+  }
+}
+
+.watch-loading-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+/* Error state */
+.watch-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 16px;
+  text-align: center;
+  color: var(--accent);
+}
+
+.watch-error h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 400px;
+}
+
+.watch-retry-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.watch-retry-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-accent);
+}
+
+/* ---- Season/Episode Card List ---- */
+.watch-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.watch-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.watch-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(229, 9, 20, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Season poster */
+.watch-card-poster-wrap {
+  width: 60px;
+  height: 90px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.watch-card-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.watch-card-poster-placeholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* Episode thumbnail */
+.watch-card-thumb-wrap {
+  width: 140px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.watch-card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.watch-card-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.watch-card-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.watch-card:hover .watch-card-play-overlay {
+  opacity: 1;
+}
+
+.watch-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.watch-card-meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+.watch-card-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.watch-card-runtime {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.watch-card-chevron {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.watch-card:hover .watch-card-chevron {
+  color: var(--accent);
+  transform: translateX(4px);
+}
+
+/* ---- Watch Page Responsive ---- */
+@media (max-width: 768px) {
+  .watch-controls-top {
+    padding: 16px 20px;
+  }
+
+  .watch-controls-bottom {
+    padding: 0 20px 16px;
+    padding-top: 40px;
+  }
+
+  .watch-controls-center {
+    gap: 32px;
+  }
+
+  .watch-play-btn {
+    width: 60px;
+    height: 60px;
+  }
+
+  .watch-play-btn svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .watch-seek-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .watch-selection-header {
+    padding: 16px 20px;
+  }
+
+  .watch-selection-title {
+    font-size: 18px;
+  }
+
+  .watch-selection-content {
+    padding: 16px 20px;
+  }
+
+  .watch-card-thumb-wrap {
+    width: 100px;
+    height: 60px;
+  }
+
+  .watch-iframe-header {
+    padding: 12px 16px;
+  }
+
+  .watch-volume-slider {
+    width: 60px;
   }
 }
