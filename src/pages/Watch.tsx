@@ -166,13 +166,41 @@ export default function WatchPage() {
     const video = videoRef.current;
     
     if (Hls.isSupported() && streamUrl.includes(".m3u8")) {
+      const PROXY_BASE = (import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000") + "/proxy";
       const hls = new Hls({
         maxMaxBufferLength: 60,
+        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
+          // Route ALL HLS requests through our Python proxy to bypass CORS
+          const proxiedUrl = `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
+          xhr.open('GET', proxiedUrl, true);
+          xhr.setRequestHeader("ngrok-skip-browser-warning", "true");
+        },
       });
       hlsRef.current = hls;
       
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
+
+      // Log errors so we can debug playback failures
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("[HLS] Error:", data.type, data.details, data.fatal);
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error("[HLS] Fatal network error, trying to recover...");
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error("[HLS] Fatal media error, trying to recover...");
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error("[HLS] Fatal error, cannot recover");
+              hls.destroy();
+              break;
+          }
+        }
+      });
       
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         // Extract available qualities

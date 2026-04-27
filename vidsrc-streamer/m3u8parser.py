@@ -175,6 +175,32 @@ async def get_subtitle(
         logging.error(f"Error fetching subtitles for {imdb_id}: {ex}")
         raise HTTPException(status_code=500, detail="Error fetching subtitles")
 
+@app.get("/proxy")
+async def proxy_url(url: str):
+    """Proxy any URL to bypass CORS restrictions for HLS.js playback"""
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://videostr.net/",
+            "Origin": "https://videostr.net",
+        }
+        
+        res = requests.get(url, headers=headers, timeout=15)
+        
+        content_type = res.headers.get("Content-Type", "application/octet-stream")
+        
+        return Response(
+            content=res.content,
+            media_type=content_type,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    except Exception as ex:
+        logging.error(f"Proxy error for {url}: {ex}")
+        raise HTTPException(status_code=502, detail="Proxy fetch failed")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("m3u8parser:app", host="0.0.0.0", port=8000, reload=True)
