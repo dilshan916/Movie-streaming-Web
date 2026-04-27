@@ -18,7 +18,7 @@ export const getDirectStreamUrl = async (
     
     // The Python API has been updated to expect TMDB IDs for vidsrc.to
     const STREAM_API_URL = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000";
-    let pythonApiUrl = `${STREAM_API_URL}/stream/${id}?media_type=${mediaType}`;
+    let pythonApiUrl = `${STREAM_API_URL}/stream/${id}?type=${mediaType}`;
     if (mediaType === "tv" && season && episode) {
       pythonApiUrl += `&s=${season}&e=${episode}`;
     }

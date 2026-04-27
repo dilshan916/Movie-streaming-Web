@@ -44,7 +44,17 @@ class VidSrcBrowserExtractor:
         options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
         
         try:
-            driver = uc.Chrome(options=options)
+            import platform
+            version_main = 147
+            if platform.system() == 'Windows':
+                import winreg
+                try:
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Google\Chrome\BLBeacon')
+                    version, _ = winreg.QueryValueEx(key, 'version')
+                    version_main = int(version.split('.')[0])
+                except:
+                    pass
+            driver = uc.Chrome(options=options, version_main=version_main)
             return driver
         except Exception as e:
             print(f"[!] Error setting up Chrome driver: {e}")
