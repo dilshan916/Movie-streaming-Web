@@ -24,7 +24,11 @@ export const getDirectStreamUrl = async (
     }
 
     console.log(`[StreamService] Calling local Python API: ${pythonApiUrl}`);
-    const res = await fetch(pythonApiUrl);
+    const res = await fetch(pythonApiUrl, {
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      }
+    });
     
     if (!res.ok) {
       console.error("[StreamService] Python API failed with status:", res.status);

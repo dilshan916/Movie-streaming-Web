@@ -676,7 +676,11 @@ export default function WatchPage() {
                           if (!imdbId) throw new Error("No IMDB ID");
                           setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching for subtitles online...");
                           const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}${isTv && selectedSeason ? `?s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}`;
-                          const res = await fetch(url);
+                          const res = await fetch(url, {
+                            headers: {
+                              "ngrok-skip-browser-warning": "true"
+                            }
+                          });
                           if (!res.ok) throw new Error("Not found");
                           const data = await res.json();
                           
