@@ -5,3 +5,5 @@ imdbpy
 uvicorn
 undetected-chromedriver
 selenium
+curl_cffi
+webdriver-manager

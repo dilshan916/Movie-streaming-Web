@@ -3,12 +3,7 @@
  * Ports the streaming logic from the mobile APK.
  */
 
-const CONSUMET_URL = import.meta.env.VITE_CONSUMET_URL || "https://api.consumet.org";
-import tmdbClient from "./tmdb";
-
-const fetchWithCors = async (url: string) => {
-  return fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-};
+// No unused imports
 
 export const getDirectStreamUrl = async (
   id: string | number,
@@ -22,7 +17,8 @@ export const getDirectStreamUrl = async (
     const mediaType = type === "tv" ? "tv" : "movie";
     
     // The Python API has been updated to expect TMDB IDs for vidsrc.to
-    let pythonApiUrl = `http://localhost:8000/stream/${id}?type=${mediaType}`;
+    const STREAM_API_URL = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000";
+    let pythonApiUrl = `${STREAM_API_URL}/stream/${id}?media_type=${mediaType}`;
     if (mediaType === "tv" && season && episode) {
       pythonApiUrl += `&s=${season}&e=${episode}`;
     }

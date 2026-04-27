@@ -28,7 +28,7 @@ import tmdbClient, { IMAGE_BASE_URL } from "../lib/tmdb";
 import { getDirectStreamUrl } from "../lib/stream";
 import Hls from "hls.js";
 
-const STREAM_API_URL = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000";
+
 
 
 
@@ -70,7 +70,7 @@ export default function WatchPage() {
   
   // HLS.js Quality state
   const hlsRef = useRef<Hls | null>(null);
-  const [qualities, setQualities] = useState<{ height: number; bitrate: number; index: number }[]>([]);
+  const [qualities, setQualities] = useState<{ height: number; bitrate: number; index: number; name?: string }[]>([]);
   const [currentQuality, setCurrentQuality] = useState<number>(-1); // -1 = Auto
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const showSettingsMenuRef = useRef(showSettingsMenu);
@@ -174,7 +174,7 @@ export default function WatchPage() {
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
       
-      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+      hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         // Extract available qualities
         const availableQualities = data.levels.map((level, index) => ({
           height: level.height,
@@ -282,47 +282,6 @@ export default function WatchPage() {
   const [selectedServer, setSelectedServer] = useState(0);
 
   // Update iframe URL when server changes
-  const fetchStreamUrl = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const mediaType = isTv ? "tv" : "movie";
-      let url = `${STREAM_API_URL}/stream/${id}?media_type=${mediaType}`;
-      
-      if (isTv && selectedSeason) {
-        const episodeNum = currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1;
-        url += `&s=${selectedSeason}&e=${episodeNum}`;
-      }
-
-      console.log("Fetching native stream:", url);
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.url) {
-        setStreamUrl(data.url);
-        setShowSelection(false);
-      } else {
-        console.log("[Watch] Native stream not found, falling back to iframe embed");
-        const fallbackUrl = fallbackServers[selectedServer].getUrl(mediaType, id!, selectedSeason, currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : null);
-        setIframeUrl(fallbackUrl);
-        setShowSelection(false);
-      }
-    } catch (err) {
-      console.error("[Watch] Stream fetch error:", err);
-      setError("Stream Not Found — This title may not be available for streaming yet.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (iframeUrl && !streamUrl) {
-      const mediaType = isTv ? "tv" : "movie";
-      setIframeUrl(fallbackServers[selectedServer].getUrl(mediaType, id!, selectedSeason, currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : null));
-    }
-  }, [selectedServer]);
-
   // Auto-hide controls
   useEffect(() => {
     if (showControls) {
@@ -716,7 +675,7 @@ export default function WatchPage() {
                         try {
                           if (!imdbId) throw new Error("No IMDB ID");
                           setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching for subtitles online...");
-                          const url = `${process.env.REACT_APP_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}${isTv && selectedSeason ? `?s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}`;
+                          const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}${isTv && selectedSeason ? `?s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}`;
                           const res = await fetch(url);
                           if (!res.ok) throw new Error("Not found");
                           const data = await res.json();
