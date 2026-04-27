@@ -177,7 +177,8 @@ async def get_subtitle(
 
 @app.get("/proxy")
 async def proxy_url(url: str):
-    """Proxy any URL to bypass CORS restrictions for HLS.js playback"""
+    """Proxy any URL to bypass CORS restrictions for HLS.js playback.
+    For M3U8 files, rewrites relative URLs to absolute so HLS.js can resolve them."""
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -185,12 +186,36 @@ async def proxy_url(url: str):
             "Origin": "https://videostr.net",
         }
         
-        res = requests.get(url, headers=headers, timeout=15)
+        res = requests.get(url, headers=headers, timeout=30)
         
         content_type = res.headers.get("Content-Type", "application/octet-stream")
+        content = res.content
+        
+        # If it's an M3U8 playlist, rewrite relative URLs to absolute
+        is_m3u8 = (
+            ".m3u8" in url or 
+            "mpegurl" in content_type.lower() or
+            content[:7] == b"#EXTM3U"
+        )
+        
+        if is_m3u8:
+            from urllib.parse import urljoin
+            text = content.decode("utf-8", errors="replace")
+            lines = text.split("\n")
+            rewritten = []
+            for line in lines:
+                stripped = line.strip()
+                # Non-empty lines that don't start with # are URLs
+                if stripped and not stripped.startswith("#"):
+                    absolute_url = urljoin(url, stripped)
+                    rewritten.append(absolute_url)
+                else:
+                    rewritten.append(line)
+            content = "\n".join(rewritten).encode("utf-8")
+            content_type = "application/vnd.apple.mpegurl"
         
         return Response(
-            content=res.content,
+            content=content,
             media_type=content_type,
             headers={
                 "Access-Control-Allow-Origin": "*",
