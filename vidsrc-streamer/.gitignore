@@ -1,0 +1,6 @@
+stream_cache.db
+local.m3u8
+__pycache__/
+*.pyc
+venv/
+.env

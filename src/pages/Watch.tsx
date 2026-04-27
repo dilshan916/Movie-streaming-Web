@@ -15,11 +15,20 @@ import {
   VolumeX,
   Maximize,
   Minimize,
+  Subtitles,
+  Upload,
+  Search,
+  Plus,
+  Minus,
+  Settings2
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import tmdbClient, { IMAGE_BASE_URL } from "../lib/tmdb";
 import { getDirectStreamUrl } from "../lib/stream";
+import Hls from "hls.js";
+
+const STREAM_API_URL = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000";
 
 
 
@@ -43,6 +52,7 @@ export default function WatchPage() {
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [showSelection, setShowSelection] = useState(isTv);
   const [movieTitle, setMovieTitle] = useState("");
+  const [imdbId, setImdbId] = useState<string | null>(null);
   const [currentEpisodeInfo, setCurrentEpisodeInfo] = useState<string>("");
 
   // Video player state
@@ -57,15 +67,165 @@ export default function WatchPage() {
   const [volume, setVolume] = useState(1);
   const [isBuffering, setIsBuffering] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // HLS.js Quality state
+  const hlsRef = useRef<Hls | null>(null);
+  const [qualities, setQualities] = useState<{ height: number; bitrate: number; index: number }[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<number>(-1); // -1 = Auto
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const showSettingsMenuRef = useRef(showSettingsMenu);
+  useEffect(() => { showSettingsMenuRef.current = showSettingsMenu; }, [showSettingsMenu]);
+
+  // Subtitle state
+  const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
+  const [cues, setCues] = useState<any[]>([]);
+  const [subtitleSettings, setSubtitleSettings] = useState({ size: 24, bottom: 80, color: '#ffffff' });
+  const [subtitleOffset, setSubtitleOffset] = useState<number>(0); // in seconds
+  const [rawSubtitleText, setRawSubtitleText] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Use a ref for showSubtitleMenu to access its latest value inside timeouts
+  const showSubtitleMenuRef = useRef(showSubtitleMenu);
+  useEffect(() => {
+    showSubtitleMenuRef.current = showSubtitleMenu;
+  }, [showSubtitleMenu]);
+
+  // Parse Subtitles into Cues
+  useEffect(() => {
+    if (!rawSubtitleText) {
+      setCues([]);
+      return;
+    }
+
+    const timeRegex = /(\d{2,}:\d{2}:\d{2}[\.,]\d{3})\s*-->\s*(\d{2,}:\d{2}:\d{2}[\.,]\d{3})/;
+    const parseMs = (timeStr: string) => {
+      const parts = timeStr.replace(',', '.').split(':');
+      const secParts = parts[parts.length - 1].split('.');
+      const h = parseInt(parts.length > 2 ? parts[0] : '0');
+      const m = parseInt(parts.length > 2 ? parts[1] : parts[0]);
+      const s = parseInt(secParts[0]);
+      const ms = parseInt(secParts[1]);
+      return (h * 3600000 + m * 60000 + s * 1000 + ms) / 1000; // seconds
+    };
+
+    const lines = rawSubtitleText.split('\n');
+    const parsedCues: any[] = [];
+    let currentCue: any = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line && currentCue && currentCue.text) {
+        parsedCues.push(currentCue);
+        currentCue = null;
+        continue;
+      }
+      
+      const match = timeRegex.exec(line);
+      if (match) {
+        if (currentCue && currentCue.text) parsedCues.push(currentCue);
+        currentCue = {
+          id: parsedCues.length.toString(),
+          start: parseMs(match[1]),
+          end: parseMs(match[2]),
+          text: ''
+        };
+      } else if (currentCue && line && !line.includes('WEBVTT')) {
+        currentCue.text = currentCue.text ? currentCue.text + '\n' + line : line;
+      }
+    }
+    if (currentCue && currentCue.text) parsedCues.push(currentCue);
+    setCues(parsedCues);
+
+  }, [rawSubtitleText]);
+
+  const activeCues = cues.filter(c => 
+    currentTime >= (c.start + subtitleOffset) && 
+    currentTime <= (c.end + subtitleOffset)
+  );
+
+  const handleSubtitleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      let text = ev.target?.result as string;
+      if (!text.startsWith("WEBVTT")) {
+        text = "WEBVTT\n\n" + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
+      }
+      setRawSubtitleText(text);
+      setSubtitleOffset(0);
+      setShowSubtitleMenu(false);
+    };
+    reader.readAsText(file);
+  };
+
+  // Setup HLS.js for .m3u8 streams
+  useEffect(() => {
+    if (!streamUrl || !videoRef.current) return;
+    const video = videoRef.current;
+    
+    if (Hls.isSupported() && streamUrl.includes(".m3u8")) {
+      const hls = new Hls({
+        maxMaxBufferLength: 60,
+      });
+      hlsRef.current = hls;
+      
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+      
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        // Extract available qualities
+        const availableQualities = data.levels.map((level, index) => ({
+          height: level.height,
+          bitrate: level.bitrate,
+          name: level.name,
+          index: index
+        })).sort((a, b) => b.height - a.height); // Highest quality first
+        
+        // Only show quality selector if there are multiple qualities available
+        if (data.levels.length > 1) {
+          setQualities(availableQualities);
+        } else {
+          setQualities([]);
+        }
+        
+        setCurrentQuality(-1); // Start on Auto
+        
+        video.play().catch(e => console.error("Auto-play prevented", e));
+        setIsPlaying(true);
+      });
+
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari Native support (no manual quality control natively without complicated MSE)
+      video.src = streamUrl;
+      video.addEventListener('loadedmetadata', () => {
+        video.play().catch(e => console.error("Auto-play prevented", e));
+        setIsPlaying(true);
+      });
+    } else {
+      video.src = streamUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [streamUrl]);
 
   // Fetch title info
   useEffect(() => {
     if (!id) return;
     const mediaType = isTv ? "tv" : "movie";
     tmdbClient
-      .get(`/${mediaType}/${id}`, { params: { language: "en-US" } })
+      .get(`/${mediaType}/${id}`, { params: { language: "en-US", append_to_response: "external_ids" } })
       .then((res) => {
         setMovieTitle(res.data.title || res.data.name || "");
+        if (res.data.external_ids?.imdb_id) {
+          setImdbId(res.data.external_ids.imdb_id);
+        }
       })
       .catch(() => {});
   }, [id, isTv]);
@@ -83,11 +243,11 @@ export default function WatchPage() {
   // Servers for iframe fallback
   const fallbackServers = [
     {
-      name: "Server 1 (MultiEmbed)",
+      name: "Server 1 (VidLink - Recommended)",
       getUrl: (media: string, id: string, s?: number | null, e?: number | null) =>
         media === "movie" 
-          ? `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1` 
-          : `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+          ? `https://vidlink.pro/movie/${id}?primaryColor=e50914&autoplay=false` 
+          : `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&autoplay=false`,
     },
     {
       name: "Server 2 (AutoEmbed)",
@@ -97,21 +257,21 @@ export default function WatchPage() {
           : `https://autoembed.co/tv/tmdb/${id}-${s}-${e}`,
     },
     {
-      name: "Server 3 (VidSrc.net)",
+      name: "Server 2 (VidSrc.net)",
       getUrl: (media: string, id: string, s?: number | null, e?: number | null) =>
         media === "movie" 
           ? `https://vidsrc.net/embed/movie?tmdb=${id}` 
           : `https://vidsrc.net/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
     },
     {
-      name: "Server 4 (VidSrc.xyz)",
+      name: "Server 3 (VidSrc.xyz)",
       getUrl: (media: string, id: string, s?: number | null, e?: number | null) =>
         media === "movie" 
           ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` 
           : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
     },
     {
-      name: "Server 5 (VidSrc.cc)",
+      name: "Server 4 (VidSrc.cc)",
       getUrl: (media: string, id: string, s?: number | null, e?: number | null) =>
         media === "movie" 
           ? `https://vidsrc.cc/v2/embed/movie/${id}` 
@@ -122,6 +282,40 @@ export default function WatchPage() {
   const [selectedServer, setSelectedServer] = useState(0);
 
   // Update iframe URL when server changes
+  const fetchStreamUrl = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const mediaType = isTv ? "tv" : "movie";
+      let url = `${STREAM_API_URL}/stream/${id}?media_type=${mediaType}`;
+      
+      if (isTv && selectedSeason) {
+        const episodeNum = currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1;
+        url += `&s=${selectedSeason}&e=${episodeNum}`;
+      }
+
+      console.log("Fetching native stream:", url);
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.url) {
+        setStreamUrl(data.url);
+        setShowSelection(false);
+      } else {
+        console.log("[Watch] Native stream not found, falling back to iframe embed");
+        const fallbackUrl = fallbackServers[selectedServer].getUrl(mediaType, id!, selectedSeason, currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : null);
+        setIframeUrl(fallbackUrl);
+        setShowSelection(false);
+      }
+    } catch (err) {
+      console.error("[Watch] Stream fetch error:", err);
+      setError("Stream Not Found — This title may not be available for streaming yet.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (iframeUrl && !streamUrl) {
       const mediaType = isTv ? "tv" : "movie";
@@ -131,16 +325,20 @@ export default function WatchPage() {
 
   // Auto-hide controls
   useEffect(() => {
-    if (showControls && isPlaying && streamUrl) {
+    if (showControls) {
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 4000);
+        if (!showSubtitleMenuRef.current && !showSettingsMenuRef.current) {
+          setShowControls(false);
+          setShowSubtitleMenu(false);
+          setShowSettingsMenu(false);
+        }
+      }, 3000);
     }
     return () => {
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, [showControls, isPlaying, streamUrl]);
+  }, [showControls, isPlaying]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -327,10 +525,17 @@ export default function WatchPage() {
     resetControlsTimeout();
   }, []);
 
-  const resetControlsTimeout = () => {
+  const resetControlsTimeout = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-  };
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (!showSubtitleMenuRef.current && !showSettingsMenuRef.current) {
+        setShowControls(false);
+        setShowSubtitleMenu(false);
+        setShowSettingsMenu(false);
+      }
+    }, 3000);
+  }, []);
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";
@@ -361,14 +566,23 @@ export default function WatchPage() {
     return (
       <div
         ref={playerContainerRef}
-        className="watch-player-container"
+        className={`watch-player-container ${!showControls ? 'hide-cursor' : ''}`}
         onMouseMove={resetControlsTimeout}
-        onClick={() => setShowControls(!showControls)}
+        onMouseLeave={() => {
+          if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+          setShowControls(false);
+          setShowSubtitleMenu(false);
+          setShowSettingsMenu(false);
+        }}
+        onClick={() => {
+          setShowControls(!showControls);
+          setShowSubtitleMenu(false);
+          setShowSettingsMenu(false);
+        }}
       >
         <video
           ref={videoRef}
           className="watch-video"
-          src={streamUrl}
           autoPlay
           playsInline
           onPlay={() => setIsPlaying(true)}
@@ -387,8 +601,25 @@ export default function WatchPage() {
           onClick={(e) => {
             e.stopPropagation();
             togglePlayPause();
+            setShowSubtitleMenu(false);
           }}
         />
+
+        {/* Custom Subtitles Overlay */}
+        {activeCues.length > 0 && (
+          <div 
+            className={`watch-custom-subtitles ${showControls ? 'controls-visible' : ''}`}
+            style={{
+              bottom: `${showControls ? subtitleSettings.bottom + 80 : subtitleSettings.bottom}px`,
+              fontSize: `${subtitleSettings.size}px`,
+              color: subtitleSettings.color
+            }}
+          >
+            {activeCues.map((c, i) => (
+              <div key={i} className="watch-subtitle-line" dangerouslySetInnerHTML={{ __html: c.text.replace(/\n/g, '<br/>') }} />
+            ))}
+          </div>
+        )}
 
         {/* Buffering indicator */}
         {isBuffering && (
@@ -460,6 +691,156 @@ export default function WatchPage() {
                   onChange={handleVolumeChange}
                 />
               </div>
+
+              {/* Subtitles Menu */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  className={`watch-icon-btn ${cues.length > 0 ? 'active' : ''}`} 
+                  onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
+                >
+                  <Subtitles size={20} color={cues.length > 0 ? "#e50914" : "white"} />
+                </button>
+                
+                {showSubtitleMenu && (
+                  <div className="watch-subtitle-menu" onClick={e => e.stopPropagation()}>
+                    <h4>Subtitles</h4>
+                    <div className="subtitle-menu-divider" />
+                    
+                    <button className="subtitle-menu-btn" onClick={() => fileInputRef.current?.click()}>
+                      <Upload size={16} />
+                      Upload Local (.srt / .vtt)
+                    </button>
+                    <button 
+                      className="subtitle-menu-btn" 
+                      onClick={async () => {
+                        try {
+                          if (!imdbId) throw new Error("No IMDB ID");
+                          setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching for subtitles online...");
+                          const url = `${process.env.REACT_APP_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}${isTv && selectedSeason ? `?s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}`;
+                          const res = await fetch(url);
+                          if (!res.ok) throw new Error("Not found");
+                          const data = await res.json();
+                          
+                          let text = data.text;
+                          if (!text.startsWith("WEBVTT")) {
+                            text = "WEBVTT\n\n" + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
+                          }
+                          setRawSubtitleText(text);
+                          setSubtitleOffset(0);
+                        } catch (err) {
+                          setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nCould not find English subtitles for this title.");
+                          setTimeout(() => setRawSubtitleText(""), 5000);
+                        }
+                      }}
+                    >
+                      <Search size={16} />
+                      Search Online (English)
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      accept=".srt,.vtt" 
+                      style={{ display: 'none' }} 
+                      onChange={handleSubtitleUpload}
+                    />
+
+                    {cues.length > 0 && (
+                      <>
+                        <div className="subtitle-menu-divider" />
+                        
+                        <div className="subtitle-sync-control">
+                          <span style={{ fontSize: 13, color: '#aaa' }}>Sync Delay</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <button className="sync-btn" onClick={() => setSubtitleOffset(prev => prev - 0.5)}><Minus size={14} /></button>
+                            <span style={{ fontSize: 13, minWidth: 40, textAlign: 'center' }}>{subtitleOffset > 0 ? '+' : ''}{subtitleOffset.toFixed(1)}s</span>
+                            <button className="sync-btn" onClick={() => setSubtitleOffset(prev => prev + 0.5)}><Plus size={14} /></button>
+                          </div>
+                        </div>
+
+                        <div className="subtitle-sync-control" style={{ marginTop: 8 }}>
+                          <span style={{ fontSize: 13, color: '#aaa' }}>Text Size</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <button className="sync-btn" onClick={() => setSubtitleSettings(s => ({ ...s, size: Math.max(12, s.size - 2) }))}><Minus size={14} /></button>
+                            <span style={{ fontSize: 13, minWidth: 40, textAlign: 'center' }}>{subtitleSettings.size}px</span>
+                            <button className="sync-btn" onClick={() => setSubtitleSettings(s => ({ ...s, size: Math.min(60, s.size + 2) }))}><Plus size={14} /></button>
+                          </div>
+                        </div>
+
+                        <div className="subtitle-sync-control" style={{ marginTop: 8 }}>
+                          <span style={{ fontSize: 13, color: '#aaa' }}>Vertical Position</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <button className="sync-btn" onClick={() => setSubtitleSettings(s => ({ ...s, bottom: Math.max(20, s.bottom - 10) }))}><Minus size={14} /></button>
+                            <span style={{ fontSize: 13, minWidth: 40, textAlign: 'center' }}>{subtitleSettings.bottom}px</span>
+                            <button className="sync-btn" onClick={() => setSubtitleSettings(s => ({ ...s, bottom: Math.min(500, s.bottom + 10) }))}><Plus size={14} /></button>
+                          </div>
+                        </div>
+
+                        <button className="subtitle-menu-btn" onClick={() => {
+                          setRawSubtitleText("");
+                          setSubtitleOffset(0);
+                        }} style={{ color: '#ff4444', marginTop: 12 }}>
+                          Remove Subtitle
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Settings Menu (Quality) */}
+              {qualities.length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  <button 
+                    className={`watch-icon-btn ${showSettingsMenu ? 'active' : ''}`} 
+                    onClick={() => {
+                      setShowSettingsMenu(!showSettingsMenu);
+                      setShowSubtitleMenu(false);
+                    }}
+                  >
+                    <Settings2 size={20} />
+                  </button>
+                  
+                  {showSettingsMenu && (
+                    <div className="watch-subtitle-menu" onClick={e => e.stopPropagation()}>
+                      <h4>Video Quality</h4>
+                      <div className="subtitle-menu-divider" />
+                      
+                      <button 
+                        className="subtitle-menu-btn" 
+                        style={{ color: currentQuality === -1 ? '#e50914' : 'white', fontWeight: currentQuality === -1 ? 600 : 400 }}
+                        onClick={() => {
+                          if (hlsRef.current) {
+                            hlsRef.current.currentLevel = -1;
+                            setCurrentQuality(-1);
+                          }
+                          setShowSettingsMenu(false);
+                        }}
+                      >
+                        Auto
+                      </button>
+
+                      {qualities.map((q) => (
+                        <button 
+                          key={q.index}
+                          className="subtitle-menu-btn" 
+                          style={{ color: currentQuality === q.index ? '#e50914' : 'white', fontWeight: currentQuality === q.index ? 600 : 400 }}
+                          onClick={() => {
+                            if (hlsRef.current) {
+                              hlsRef.current.currentLevel = q.index;
+                              setCurrentQuality(q.index);
+                            }
+                            setShowSettingsMenu(false);
+                          }}
+                        >
+                          {q.height > 0 ? `${q.height}p` : (q.name || `Quality ${q.index + 1}`)}
+                          {q.bitrate ? ` (${(q.bitrate / 1000000).toFixed(1)} Mbps)` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button className="watch-icon-btn" onClick={toggleFullscreen}>
                 {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
               </button>
