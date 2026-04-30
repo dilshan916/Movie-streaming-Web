@@ -182,7 +182,7 @@ export default function WatchPage() {
       // Only use proxy in production (when VITE_STREAM_API_URL is set)
       // On localhost, HLS.js loads directly from CDN without issues
       const streamApiUrl = import.meta.env.VITE_STREAM_API_URL;
-      const hlsConfig: Partial<HlsConfig> = { maxMaxBufferLength: 60 };
+      const hlsConfig: any = { maxMaxBufferLength: 60 };
       
       if (streamApiUrl) {
         const PROXY_BASE = streamApiUrl + "/proxy";
