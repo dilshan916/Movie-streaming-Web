@@ -89,6 +89,7 @@ export default function WatchPage() {
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState("");
   const [subtitleSearching, setSubtitleSearching] = useState(false);
   const [hoverPos, setHoverPos] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const SUBTITLE_LANGUAGES = [
     { code: "eng", label: "🇬🇧 English" },
@@ -527,14 +528,35 @@ export default function WatchPage() {
     setIsMuted(newVolume === 0);
   }, []);
 
-  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    
     const video = videoRef.current;
     if (!video) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    video.currentTime = percentage * video.duration;
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    video.currentTime = pos * video.duration;
     resetControlsTimeout();
+  }, [resetControlsTimeout]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverPos(pos);
+    
+    if (isDragging) {
+      const video = videoRef.current;
+      if (video && video.duration) {
+        video.currentTime = pos * video.duration;
+      }
+      resetControlsTimeout();
+    }
+  }, [isDragging, resetControlsTimeout]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 
   const resetControlsTimeout = useCallback(() => {
@@ -677,12 +699,10 @@ export default function WatchPage() {
               <span className="watch-time">{formatTime(currentTime)}</span>
               <div 
                 className="watch-progress-bar" 
-                onClick={handleProgressClick}
-                onMouseMove={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                  setHoverPos(pos);
-                }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
                 onMouseLeave={() => setHoverPos(null)}
               >
                 <div className="watch-progress-bg" />
