@@ -1554,6 +1554,57 @@ img {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.subtitle-lang-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.subtitle-lang-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.subtitle-lang-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.subtitle-search-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+
+.subtitle-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.subtitle-search-input:focus {
+  border-color: var(--accent);
+}
+
+.subtitle-menu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ---- Auth button ---- */
 .nf-auth-btn {
   width: 100%;

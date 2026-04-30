@@ -20,6 +20,8 @@ import {
   Search,
   Plus,
   Minus,
+  Globe,
+  Type,
   Settings2
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -83,6 +85,17 @@ export default function WatchPage() {
   const [subtitleOffset, setSubtitleOffset] = useState<number>(0); // in seconds
   const [rawSubtitleText, setRawSubtitleText] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [subtitleLang, setSubtitleLang] = useState("eng");
+  const [subtitleSearchQuery, setSubtitleSearchQuery] = useState("");
+  const [subtitleSearching, setSubtitleSearching] = useState(false);
+
+  const SUBTITLE_LANGUAGES = [
+    { code: "eng", label: "🇬🇧 English" },
+    { code: "sin", label: "🇱🇰 Sinhala" },
+    { code: "jpn", label: "🇯🇵 Japanese" },
+    { code: "kor", label: "🇰🇷 Korean" },
+    { code: "spa", label: "🇪🇸 Spanish" },
+  ];
   
   // Use a ref for showSubtitleMenu to access its latest value inside timeouts
   const showSubtitleMenuRef = useRef(showSubtitleMenu);
@@ -166,16 +179,21 @@ export default function WatchPage() {
     const video = videoRef.current;
     
     if (Hls.isSupported() && streamUrl.includes(".m3u8")) {
-      const PROXY_BASE = (import.meta.env.VITE_STREAM_API_URL || "http://localhost:8000") + "/proxy";
-      const hls = new Hls({
-        maxMaxBufferLength: 60,
-        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
-          // Route ALL HLS requests through our Python proxy to bypass CORS
+      // Only use proxy in production (when VITE_STREAM_API_URL is set)
+      // On localhost, HLS.js loads directly from CDN without issues
+      const streamApiUrl = import.meta.env.VITE_STREAM_API_URL;
+      const hlsConfig: Partial<HlsConfig> = { maxMaxBufferLength: 60 };
+      
+      if (streamApiUrl) {
+        const PROXY_BASE = streamApiUrl + "/proxy";
+        hlsConfig.xhrSetup = (xhr: XMLHttpRequest, url: string) => {
           const proxiedUrl = `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
           xhr.open('GET', proxiedUrl, true);
           xhr.setRequestHeader("ngrok-skip-browser-warning", "true");
-        },
-      });
+        };
+      }
+      
+      const hls = new Hls(hlsConfig as any);
       hlsRef.current = hls;
       
       hls.loadSource(streamUrl);
@@ -692,22 +710,42 @@ export default function WatchPage() {
                   <div className="watch-subtitle-menu" onClick={e => e.stopPropagation()}>
                     <h4>Subtitles</h4>
                     <div className="subtitle-menu-divider" />
+
+                    {/* Language Selector */}
+                    <div className="subtitle-sync-control">
+                      <span style={{ fontSize: 13, color: '#aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Globe size={14} /> Language
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                        {SUBTITLE_LANGUAGES.map(l => (
+                          <button
+                            key={l.code}
+                            className={`subtitle-lang-btn ${subtitleLang === l.code ? 'active' : ''}`}
+                            onClick={() => setSubtitleLang(l.code)}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="subtitle-menu-divider" />
                     
                     <button className="subtitle-menu-btn" onClick={() => fileInputRef.current?.click()}>
                       <Upload size={16} />
                       Upload Local (.srt / .vtt)
                     </button>
                     <button 
-                      className="subtitle-menu-btn" 
+                      className="subtitle-menu-btn"
+                      disabled={subtitleSearching}
                       onClick={async () => {
                         try {
                           if (!imdbId) throw new Error("No IMDB ID");
-                          setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching for subtitles online...");
-                          const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}${isTv && selectedSeason ? `?s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}`;
+                          setSubtitleSearching(true);
+                          setRawSubtitleText(`WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching ${SUBTITLE_LANGUAGES.find(l => l.code === subtitleLang)?.label || subtitleLang} subtitles...`);
+                          const langParam = `&lang=${subtitleLang}`;
+                          const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}?${isTv && selectedSeason ? `s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}${langParam}`;
                           const res = await fetch(url, {
-                            headers: {
-                              "ngrok-skip-browser-warning": "true"
-                            }
+                            headers: { "ngrok-skip-browser-warning": "true" }
                           });
                           if (!res.ok) throw new Error("Not found");
                           const data = await res.json();
@@ -719,14 +757,72 @@ export default function WatchPage() {
                           setRawSubtitleText(text);
                           setSubtitleOffset(0);
                         } catch (err) {
-                          setRawSubtitleText("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nCould not find English subtitles for this title.");
+                          const langName = SUBTITLE_LANGUAGES.find(l => l.code === subtitleLang)?.label || subtitleLang;
+                          setRawSubtitleText(`WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nCould not find ${langName} subtitles for this title.`);
                           setTimeout(() => setRawSubtitleText(""), 5000);
+                        } finally {
+                          setSubtitleSearching(false);
                         }
                       }}
                     >
                       <Search size={16} />
-                      Search Online (English)
+                      {subtitleSearching ? 'Searching...' : `Search Online`}
                     </button>
+
+                    {/* Keyword Search */}
+                    <div className="subtitle-menu-divider" />
+                    <div className="subtitle-sync-control">
+                      <span style={{ fontSize: 13, color: '#aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Type size={14} /> Search by Name
+                      </span>
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                        <input
+                          type="text"
+                          className="subtitle-search-input"
+                          placeholder={movieTitle || 'Movie or show name...'}
+                          value={subtitleSearchQuery}
+                          onChange={e => setSubtitleSearchQuery(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        />
+                        <button
+                          className="sync-btn"
+                          style={{ padding: '6px 12px', fontSize: 12 }}
+                          disabled={subtitleSearching}
+                          onClick={async () => {
+                            const q = subtitleSearchQuery.trim() || movieTitle;
+                            if (!q) return;
+                            try {
+                              setSubtitleSearching(true);
+                              setRawSubtitleText(`WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching subtitles for "${q}"...`);
+                              let searchUrl = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/search?query=${encodeURIComponent(q)}&lang=${subtitleLang}`;
+                              if (isTv && selectedSeason && currentEpisodeInfo) {
+                                const epNum = parseInt(currentEpisodeInfo.split("E")[1]) || 1;
+                                searchUrl += `&season=${selectedSeason}&episode=${epNum}`;
+                              }
+                              const res = await fetch(searchUrl, {
+                                headers: { "ngrok-skip-browser-warning": "true" }
+                              });
+                              if (!res.ok) throw new Error("Not found");
+                              const data = await res.json();
+                              let text = data.text;
+                              if (!text.startsWith("WEBVTT")) {
+                                text = "WEBVTT\n\n" + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
+                              }
+                              setRawSubtitleText(text);
+                              setSubtitleOffset(0);
+                            } catch {
+                              setRawSubtitleText(`WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nNo subtitles found for "${q}".`);
+                              setTimeout(() => setRawSubtitleText(""), 5000);
+                            } finally {
+                              setSubtitleSearching(false);
+                            }
+                          }}
+                        >
+                          Go
+                        </button>
+                      </div>
+                    </div>
+
                     <input 
                       type="file" 
                       ref={fileInputRef} 
