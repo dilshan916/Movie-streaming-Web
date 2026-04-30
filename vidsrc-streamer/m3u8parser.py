@@ -131,46 +131,55 @@ async def get_subtitle(
     lang: str = "eng",
 ):
     try:
-        # Note: OpenSubtitles REST API expects imdbid without 'tt' prefix
-        imdb_id_clean = imdb_id.replace('tt', '')
-        
-        # Build OpenSubtitles REST API URL
-        base_url = f"https://rest.opensubtitles.org/search/imdbid-{imdb_id_clean}/sublanguageid-{lang}"
+        # Note: Stremio OpenSubtitles v3 addon requires exact IMDb ID with 'tt'
+        if not imdb_id.startswith('tt'):
+            imdb_id = 'tt' + imdb_id
+            
+        # Build Stremio OpenSubtitles v3 addon URL with language configuration
         if s and e:
-            base_url += f"/season-{s}/episode-{e}"
+            url = f"https://opensubtitles-v3.strem.io/sublanguageid-{lang}/subtitles/series/{imdb_id}:{s}:{e}.json"
+        else:
+            url = f"https://opensubtitles-v3.strem.io/sublanguageid-{lang}/subtitles/movie/{imdb_id}.json"
 
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'X-User-Agent': 'trailers.to-UA',
-        }
-
-        # 1. Fetch subtitle metadata
-        response = requests.get(base_url, headers=headers)
+        # 1. Fetch subtitle metadata from Stremio addon
+        response = requests.get(url)
         if response.status_code != 200:
             raise HTTPException(status_code=404, detail="Subtitles not found")
             
-        results = response.json()
-        if not results:
+        data = response.json()
+        subtitles = data.get('subtitles', [])
+        
+        if not subtitles:
             raise HTTPException(status_code=404, detail="Subtitles not found")
         
-        # Get the highest scoring subtitle
-        best_subtitle = max(results, key=lambda x: float(x.get('Score', 0)), default=None)
+        # Language mapping for flexible matching
+        LANG_ALIASES = {
+            "eng": ["eng", "English"],
+            "sin": ["sin", "Sinhala", "Sinhalese"],
+            "jpn": ["jpn", "Japanese"],
+            "kor": ["kor", "Korean"],
+            "spa": ["spa", "Spanish"],
+        }
+        
+        aliases = LANG_ALIASES.get(lang, [lang])
+        best_subtitle = next((sub for sub in subtitles if sub.get('lang') in aliases), None)
+        
         if not best_subtitle:
-            raise HTTPException(status_code=404, detail="Subtitle not found for this language")
+            # Fallback to the first subtitle returned if language isn't explicitly matched
+            best_subtitle = subtitles[0]
             
-        download_link = best_subtitle.get("SubDownloadLink")
+        download_link = best_subtitle.get("url")
+        
         if not download_link:
-            raise HTTPException(status_code=404, detail="Subtitle link missing")
-
-        # 2. Download and decompress the subtitle
+            raise HTTPException(status_code=404, detail="Subtitle download link not found")
+            
+        # 2. Download the actual subtitle file (.srt/.vtt)
         sub_res = requests.get(download_link)
         if sub_res.status_code != 200:
-            raise HTTPException(status_code=500, detail="Failed to download subtitle")
+            raise HTTPException(status_code=500, detail="Failed to download subtitle file")
             
-        try:
-            raw_text = gzip.decompress(sub_res.content).decode('utf-8', errors='replace')
-        except:
-            raw_text = sub_res.text
+        # Stremio returns raw text, no need to decompress!
+        raw_text = sub_res.text
             
         return {"text": raw_text, "lang": lang}
 
