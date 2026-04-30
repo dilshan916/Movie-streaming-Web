@@ -88,6 +88,7 @@ export default function WatchPage() {
   const [subtitleLang, setSubtitleLang] = useState("eng");
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState("");
   const [subtitleSearching, setSubtitleSearching] = useState(false);
+  const [hoverPos, setHoverPos] = useState<number | null>(null);
 
   const SUBTITLE_LANGUAGES = [
     { code: "eng", label: "🇬🇧 English" },
@@ -349,6 +350,12 @@ export default function WatchPage() {
   useEffect(() => {
     if (!streamUrl) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      
       switch (e.key) {
         case " ":
         case "k":
@@ -668,7 +675,16 @@ export default function WatchPage() {
           <div className="watch-controls-bottom">
             <div className="watch-progress-row">
               <span className="watch-time">{formatTime(currentTime)}</span>
-              <div className="watch-progress-bar" onClick={handleProgressClick}>
+              <div 
+                className="watch-progress-bar" 
+                onClick={handleProgressClick}
+                onMouseMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  setHoverPos(pos);
+                }}
+                onMouseLeave={() => setHoverPos(null)}
+              >
                 <div className="watch-progress-bg" />
                 <div
                   className="watch-progress-fill"
@@ -678,6 +694,14 @@ export default function WatchPage() {
                   className="watch-progress-thumb"
                   style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%` }}
                 />
+                {hoverPos !== null && duration > 0 && (
+                  <div 
+                    className="watch-progress-tooltip" 
+                    style={{ left: `${hoverPos * 100}%` }}
+                  >
+                    {formatTime(hoverPos * duration)}
+                  </div>
+                )}
               </div>
               <span className="watch-time">{formatTime(duration)}</span>
             </div>

@@ -2929,6 +2929,28 @@ img {
   opacity: 1;
 }
 
+.watch-progress-tooltip {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.95);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.watch-progress-bar:hover .watch-progress-tooltip {
+  opacity: 1;
+}
+
 .watch-bottom-actions {
   display: flex;
   align-items: center;
