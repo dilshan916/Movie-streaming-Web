@@ -24,14 +24,10 @@ class LocalSubtitleScraper:
         """
         driver = None
         try:
-            # Format search query
-            if season and episode:
-                query = f"{title} S{season:02d}E{episode:02d}"
-                # Sometimes they use "S01 E01"
-                query_alt = f"{title} S{season:02d} E{episode:02d}"
-            else:
-                query = title
-                query_alt = title
+            # For TV shows, searching specific episodes usually fails on BaiscopeLK because they group them.
+            # We will just search the title, download the season pack, and extract the specific episode inside!
+            query = title
+            query_alt = title
 
             print(f"[*] Searching BaiscopeLK for: {query}")
             search_url = f"https://baiscope.lk/?s={requests.utils.quote(query)}"
@@ -108,7 +104,7 @@ class LocalSubtitleScraper:
                 return None
                 
             content = res.content
-            return self._extract_subtitle_from_archive(content, download_link)
+            return self._extract_subtitle_from_archive(content, download_link, season, episode)
 
         except Exception as e:
             print(f"[!] Baiscope scraper error: {e}")
@@ -120,14 +116,44 @@ class LocalSubtitleScraper:
                 except:
                     pass
 
-    def _extract_subtitle_from_archive(self, content: bytes, filename: str):
-        """Extracts the first .srt or .vtt file from a zip or rar archive in memory."""
+    def _extract_subtitle_from_archive(self, content: bytes, filename: str, season: int = None, episode: int = None):
+        """Extracts the best matching .srt or .vtt file from a zip or rar archive in memory."""
+        
+        def is_match(name):
+            name_lower = name.lower()
+            if not (name_lower.endswith('.srt') or name_lower.endswith('.vtt')):
+                return False
+            
+            # If it's a movie, any subtitle file is fine
+            if not (season and episode):
+                return True
+                
+            # If it's a TV show, look for episode patterns
+            patterns = [
+                f"s{season:02d}e{episode:02d}", f"s{season}e{episode}",
+                f"{season}x{episode:02d}", f"e{episode:02d}", 
+                f"ep {episode:02d}", f"ep{episode}", f"episode {episode}",
+                f"episode {episode:02d}", f"e {episode:02d}"
+            ]
+            for p in patterns:
+                if p in name_lower:
+                    return True
+                    
+            # Fallback regex: look for the episode number as an isolated number
+            # e.g., "True Beauty 01.srt"
+            if re.search(rf"\b0*{episode}\b", name_lower):
+                return True
+                
+            return False
+
         try:
             # ZIP File extraction
             if filename.lower().endswith('.zip') or content[:4] == b'PK\x03\x04':
+                print("[*] Extracting ZIP file in memory...")
                 with zipfile.ZipFile(io.BytesIO(content)) as z:
                     for name in z.namelist():
-                        if name.lower().endswith('.srt') or name.lower().endswith('.vtt'):
+                        if is_match(name):
+                            print(f"[*] Found matching subtitle: {name}")
                             sub_bytes = z.read(name)
                             return sub_bytes.decode('utf-8', errors='replace')
             
@@ -137,7 +163,7 @@ class LocalSubtitleScraper:
                     print("[!] rarfile module is not installed. Cannot extract .rar!")
                     return None
                     
-                # write memory bytes to temp file because rarfile prefers real files
+                print("[*] Extracting RAR file...")
                 temp_path = "temp_sub.rar"
                 with open(temp_path, "wb") as f:
                     f.write(content)
@@ -145,14 +171,15 @@ class LocalSubtitleScraper:
                 try:
                     with rarfile.RarFile(temp_path) as rf:
                         for info in rf.infolist():
-                            if info.filename.lower().endswith('.srt') or info.filename.lower().endswith('.vtt'):
+                            if is_match(info.filename):
+                                print(f"[*] Found matching subtitle: {info.filename}")
                                 sub_bytes = rf.read(info)
                                 return sub_bytes.decode('utf-8', errors='replace')
                 finally:
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
                         
-            print("[!] No .srt or .vtt found in archive")
+            print("[!] No matching .srt or .vtt found in archive for this episode")
             return None
             
         except Exception as e:

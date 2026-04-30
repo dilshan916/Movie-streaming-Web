@@ -45,7 +45,9 @@ class VidSrcBrowserExtractor:
         
         try:
             import platform
-            version_main = 147
+            import subprocess
+            import shutil
+            version_main = None
             if platform.system() == 'Windows':
                 import winreg
                 try:
@@ -54,13 +56,32 @@ class VidSrcBrowserExtractor:
                     version_main = int(version.split('.')[0])
                 except:
                     pass
-            driver = uc.Chrome(options=options, version_main=version_main)
+            else:
+                # Linux: find Chrome binary location
+                chrome_path = shutil.which('google-chrome-stable') or shutil.which('google-chrome') or '/usr/bin/google-chrome-stable'
+                print(f"[*] Using Chrome binary: {chrome_path}")
+                
+                # Linux: auto-detect Chrome version
+                try:
+                    result = subprocess.run([chrome_path, '--version'], capture_output=True, text=True)
+                    version_str = result.stdout.strip().split()[-1]
+                    version_main = int(version_str.split('.')[0])
+                    print(f"[*] Detected Chrome version: {version_main}")
+                except:
+                    print("[*] Could not detect Chrome version, letting uc auto-detect")
+            
+            kwargs = {"options": options}
+            if version_main:
+                kwargs["version_main"] = version_main
+            # On Linux, pass browser_executable_path directly (uc ignores options.binary_location)
+            if platform.system() != 'Windows':
+                kwargs["browser_executable_path"] = chrome_path
+            driver = uc.Chrome(**kwargs)
             return driver
         except Exception as e:
             print(f"[!] Error setting up Chrome driver: {e}")
-            print("[!] Make sure chromedriver is installed and in PATH")
-            print("[!] Install with: pip install webdriver-manager")
-            sys.exit(1)
+            print("[!] Make sure Google Chrome is installed")
+            raise RuntimeError(f"Chrome driver setup failed: {e}")
     
     def extract_m3u8_from_logs(self, driver):
         """Extract M3U8 URLs from browser network logs"""
@@ -176,10 +197,16 @@ class VidSrcBrowserExtractor:
             m3u8_urls = self.extract_m3u8_from_logs(driver)
             
             # Try switching to iframes and checking again
-            for i, iframe in enumerate(iframes):
+            # Re-find iframes each time to avoid stale element errors
+            iframe_count = len(iframes)
+            for i in range(iframe_count):
                 try:
                     print(f"[*] Checking iframe {i+1}...")
-                    driver.switch_to.frame(iframe)
+                    # Re-find iframes to avoid stale references
+                    current_iframes = driver.find_elements(By.TAG_NAME, 'iframe')
+                    if i >= len(current_iframes):
+                        break
+                    driver.switch_to.frame(current_iframes[i])
                     time.sleep(2)
                     
                     # Try to click play in iframe
@@ -194,13 +221,22 @@ class VidSrcBrowserExtractor:
                             continue
                     
                     # Check logs again
+                    driver.switch_to.default_content()
                     new_urls = self.extract_m3u8_from_logs(driver)
                     m3u8_urls.extend(new_urls)
                     
-                    driver.switch_to.default_content()
                 except Exception as e:
                     print(f"[!] Error with iframe {i+1}: {e}")
-                    driver.switch_to.default_content()
+                    try:
+                        driver.switch_to.default_content()
+                    except:
+                        pass
+            
+            # If no M3U8 found, wait longer and try again
+            if not m3u8_urls:
+                print("[*] No M3U8 found yet, waiting 10 more seconds...")
+                time.sleep(10)
+                m3u8_urls = self.extract_m3u8_from_logs(driver)
             
             return list(set(m3u8_urls))
         
