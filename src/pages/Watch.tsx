@@ -89,7 +89,7 @@ export default function WatchPage() {
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState("");
   const [subtitleSearching, setSubtitleSearching] = useState(false);
   const [hoverPos, setHoverPos] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
 
   const SUBTITLE_LANGUAGES = [
     { code: "eng", label: "🇬🇧 English" },
@@ -541,7 +541,7 @@ export default function WatchPage() {
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    setIsDragging(true);
+    isDraggingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     
     const video = videoRef.current;
@@ -557,17 +557,17 @@ export default function WatchPage() {
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setHoverPos(pos);
     
-    if (isDragging) {
+    if (isDraggingRef.current) {
       const video = videoRef.current;
       if (video && video.duration) {
         video.currentTime = pos * video.duration;
       }
       resetControlsTimeout();
     }
-  }, [isDragging, resetControlsTimeout]);
+  }, [resetControlsTimeout]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    setIsDragging(false);
+    isDraggingRef.current = false;
     e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 

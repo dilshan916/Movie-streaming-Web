@@ -2889,6 +2889,7 @@ img {
   cursor: pointer;
   border-radius: 3px;
   transition: height 0.15s ease;
+  touch-action: none;
 }
 
 .watch-progress-bar:hover {
