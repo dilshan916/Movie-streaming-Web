@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, Response, Depends
+from fastapi.responses import JSONResponse
 from typing import Optional
 from helper.vidsrc_extractor import VidSrcExtractor
 from helper.vidsrc_browser import VidSrcBrowserExtractor
+from helper.local_subs import LocalSubtitleScraper
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
@@ -126,20 +128,32 @@ async def get_stream_content(
 @app.get("/subtitle/{imdb_id}")
 async def get_subtitle(
     imdb_id: str,
+    title: Optional[str] = None,
     s: Optional[int] = None,
     e: Optional[int] = None,
     lang: str = "eng",
 ):
     try:
+        # If requesting Sinhala subtitles, attempt to scrape local Sri Lankan sites first!
+        if lang in ["sin", "Sinhala", "Sinhalese"] and title:
+            try:
+                local_scraper = LocalSubtitleScraper()
+                raw_text = local_scraper.search_baiscope(title, s, e)
+                if raw_text:
+                    return {"text": raw_text, "lang": lang}
+            except Exception as ex:
+                logging.error(f"Local scraper failed for {title}: {ex}")
+
+        # Fallback to Stremio OpenSubtitles v3 addon
         # Note: Stremio OpenSubtitles v3 addon requires exact IMDb ID with 'tt'
         if not imdb_id.startswith('tt'):
             imdb_id = 'tt' + imdb_id
             
-        # Build Stremio OpenSubtitles v3 addon URL with language configuration
+        # Build Stremio OpenSubtitles v3 addon URL
         if s and e:
-            url = f"https://opensubtitles-v3.strem.io/sublanguageid-{lang}/subtitles/series/{imdb_id}:{s}:{e}.json"
+            url = f"https://opensubtitles-v3.strem.io/subtitles/series/{imdb_id}:{s}:{e}.json"
         else:
-            url = f"https://opensubtitles-v3.strem.io/sublanguageid-{lang}/subtitles/movie/{imdb_id}.json"
+            url = f"https://opensubtitles-v3.strem.io/subtitles/movie/{imdb_id}.json"
 
         # 1. Fetch subtitle metadata from Stremio addon
         response = requests.get(url)

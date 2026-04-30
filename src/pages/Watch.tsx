@@ -787,7 +787,8 @@ export default function WatchPage() {
                           setSubtitleSearching(true);
                           setRawSubtitleText(`WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSearching ${SUBTITLE_LANGUAGES.find(l => l.code === subtitleLang)?.label || subtitleLang} subtitles...`);
                           const langParam = `&lang=${subtitleLang}`;
-                          const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}?${isTv && selectedSeason ? `s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}${langParam}`;
+                          const titleParam = movieTitle ? `&title=${encodeURIComponent(movieTitle)}` : '';
+                          const url = `${import.meta.env.VITE_STREAM_API_URL || 'http://localhost:8000'}/subtitle/${imdbId}?${isTv && selectedSeason ? `s=${selectedSeason}&e=${currentEpisodeInfo ? parseInt(currentEpisodeInfo.split("E")[1]) : 1}` : ''}${langParam}${titleParam}`;
                           const res = await fetch(url, {
                             headers: { "ngrok-skip-browser-warning": "true" }
                           });
