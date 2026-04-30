@@ -528,6 +528,18 @@ export default function WatchPage() {
     setIsMuted(newVolume === 0);
   }, []);
 
+  const resetControlsTimeout = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (!showSubtitleMenuRef.current && !showSettingsMenuRef.current) {
+        setShowControls(false);
+        setShowSubtitleMenu(false);
+        setShowSettingsMenu(false);
+      }
+    }, 3000);
+  }, []);
+
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -557,18 +569,6 @@ export default function WatchPage() {
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
-  }, []);
-
-  const resetControlsTimeout = useCallback(() => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (!showSubtitleMenuRef.current && !showSettingsMenuRef.current) {
-        setShowControls(false);
-        setShowSubtitleMenu(false);
-        setShowSettingsMenu(false);
-      }
-    }, 3000);
   }, []);
 
   const formatTime = (seconds: number) => {
