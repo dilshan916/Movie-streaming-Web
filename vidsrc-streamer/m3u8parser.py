@@ -138,7 +138,7 @@ async def get_subtitle(
         if lang in ["sin", "Sinhala", "Sinhalese"] and title:
             try:
                 local_scraper = LocalSubtitleScraper()
-                raw_text = local_scraper.search_baiscope(title, s, e)
+                raw_text = local_scraper.search_all(title, s, e)
                 if raw_text:
                     return {"text": raw_text, "lang": lang}
             except Exception as ex:

@@ -82,7 +82,7 @@ export default function LoginPage() {
       <header className="nf-auth-header">
         <div className="nf-auth-logo">
           <span className="nf-auth-logo-icon">M</span>
-          <span className="nf-auth-logo-text">MATTA</span>
+          <span className="nf-auth-logo-text">MY WATCHLIST</span>
         </div>
       </header>
 
@@ -174,7 +174,7 @@ export default function LoginPage() {
         </div>
 
         <div className="nf-auth-footer">
-          <span>New to Matta?</span>{" "}
+          <span>New to My Watchlist?</span>{" "}
           <Link to="/signup" className="nf-auth-link">
             Sign up now.
           </Link>

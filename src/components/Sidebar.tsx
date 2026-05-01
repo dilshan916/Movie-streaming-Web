@@ -24,7 +24,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Slim sidebar */}
+      {/* ===== Desktop sidebar ===== */}
       <aside
         className={`netflix-sidebar ${expanded ? "expanded" : ""}`}
         onMouseEnter={() => setExpanded(true)}
@@ -80,6 +80,25 @@ export default function Sidebar() {
           </div>
         </div>
       </aside>
+
+      {/* ===== Mobile bottom nav ===== */}
+      <nav className="mobile-bottom-nav">
+        {navLinks.map((link) => {
+          const isActive = location.pathname === link.path ||
+            (link.path === "/" && location.pathname === "/") ||
+            (link.path === "/browse" && location.pathname.startsWith("/movie/"));
+          return (
+            <Link
+              key={link.path}
+              to={link.path}
+              className={`mobile-nav-item ${isActive ? "active" : ""}`}
+            >
+              <link.icon size={20} />
+              <span>{link.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </>
   );
 }

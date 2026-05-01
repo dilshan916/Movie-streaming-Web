@@ -86,7 +86,7 @@ export default function SignupPage() {
       <header className="nf-auth-header">
         <div className="nf-auth-logo">
           <span className="nf-auth-logo-icon">M</span>
-          <span className="nf-auth-logo-text">MATTA</span>
+          <span className="nf-auth-logo-text">MY WATCHLIST</span>
         </div>
       </header>
 
