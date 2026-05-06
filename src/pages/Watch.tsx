@@ -211,9 +211,9 @@ export default function WatchPage() {
         // Low latency: load fragments slightly ahead of time
         lowLatencyMode: false,            // we want VOD-style buffering, not live
         
-        // Retry on errors for resilience
-        fragLoadingMaxRetry: 6,
-        fragLoadingRetryDelay: 1000,
+        // Retry on errors — keep low so bad segments are skipped quickly
+        fragLoadingMaxRetry: 2,
+        fragLoadingRetryDelay: 500,
         manifestLoadingMaxRetry: 4,
         levelLoadingMaxRetry: 4,
       };
@@ -221,8 +221,16 @@ export default function WatchPage() {
       if (streamApiUrl) {
         const PROXY_BASE = streamApiUrl + "/proxy";
         hlsConfig.xhrSetup = (xhr: XMLHttpRequest, url: string) => {
-          const proxiedUrl = `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
-          xhr.open('GET', proxiedUrl, true);
+          // If URL is from our relay (/hls/ endpoints), request directly — no proxy needed
+          // Segments are already pre-downloaded on the server
+          if (url.startsWith(streamApiUrl) || url.startsWith("/hls/")) {
+            const fullUrl = url.startsWith("/hls/") ? streamApiUrl + url : url;
+            xhr.open('GET', fullUrl, true);
+          } else {
+            // External CDN URL — proxy it
+            const proxiedUrl = `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
+            xhr.open('GET', proxiedUrl, true);
+          }
           xhr.setRequestHeader("ngrok-skip-browser-warning", "true");
         };
       }
