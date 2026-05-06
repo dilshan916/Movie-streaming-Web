@@ -184,7 +184,39 @@ export default function WatchPage() {
       // Only use proxy in production (when VITE_STREAM_API_URL is set)
       // On localhost, HLS.js loads directly from CDN without issues
       const streamApiUrl = import.meta.env.VITE_STREAM_API_URL;
-      const hlsConfig: any = { maxMaxBufferLength: 60 };
+      
+      // ── Aggressive buffer tuning to eliminate buffering ──
+      // HLS.js will pre-download segments ahead so the player always has
+      // content ready. Think of it as "download next 20-30s while playing".
+      const hlsConfig: any = {
+        // Buffer ahead: keep 30s minimum, up to 120s max buffered
+        maxBufferLength: 30,              // try to buffer at least 30s ahead
+        maxMaxBufferLength: 120,          // hard cap at 120s buffer
+        maxBufferSize: 60 * 1000 * 1000,  // 60 MB max buffer size
+        maxBufferHole: 0.5,               // tolerate 0.5s gaps without stalling
+        
+        // Back buffer: keep 30s of already-played content (for quick seek-back)
+        backBufferLength: 30,
+        
+        // Start playback ASAP: begin from lowest quality, ABR will switch up
+        startLevel: -1,                   // auto-select start level
+        autoStartLoad: true,
+        startFragPrefetch: true,          // prefetch next fragment during current
+        
+        // ABR tuning: switch quality smoothly without interrupting playback
+        abrEwmaDefaultEstimate: 500000,   // 500kbps initial bandwidth estimate
+        abrBandWidthUpFactor: 0.7,        // conservative upswitch (70% of measured)
+        abrBandWidthFactor: 0.95,         // aggressive downswitch to avoid stalling
+        
+        // Low latency: load fragments slightly ahead of time
+        lowLatencyMode: false,            // we want VOD-style buffering, not live
+        
+        // Retry on errors for resilience
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 1000,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
+      };
       
       if (streamApiUrl) {
         const PROXY_BASE = streamApiUrl + "/proxy";

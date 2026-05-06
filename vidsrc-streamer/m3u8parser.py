@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Response, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional
 from helper.vidsrc_extractor import VidSrcExtractor
 from helper.vidsrc_browser import VidSrcBrowserExtractor
@@ -12,6 +12,11 @@ import time
 import sqlite3
 import gzip
 import io
+import hashlib
+import threading
+from collections import OrderedDict
+from urllib.parse import urlparse, parse_qs, urljoin, unquote
+import re as re_mod
 
 app = FastAPI()
 
@@ -89,7 +94,7 @@ def delete_stream_from_database(imdb_id):
 
 
 @app.get("/stream/{imdb_id}")
-async def get_stream_content(
+def get_stream_content(
     imdb_id: str,
     type: str = "movie",
     s: Optional[int] = None,
@@ -126,7 +131,7 @@ async def get_stream_content(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/subtitle/{imdb_id}")
-async def get_subtitle(
+def get_subtitle(
     imdb_id: str,
     title: Optional[str] = None,
     s: Optional[int] = None,
@@ -204,7 +209,7 @@ async def get_subtitle(
         raise HTTPException(status_code=500, detail="Error fetching subtitles")
 
 @app.get("/subtitle/search")
-async def search_subtitle(
+def search_subtitle(
     query: str,
     lang: str = "eng",
     season: Optional[int] = None,
@@ -264,66 +269,155 @@ async def search_subtitle(
         logging.error(f"Error searching subtitles for '{query}' ({lang}): {ex}")
         raise HTTPException(status_code=500, detail="Error searching subtitles")
 
+# ──────────────────────────────────────────────────────────────────────
+# Segment Cache – In-memory LRU with TTL for HLS .ts / .m4s segments
+# ──────────────────────────────────────────────────────────────────────
+SEGMENT_CACHE_MAX = 200          # max cached segments (each ~0.5-2 MB)
+SEGMENT_CACHE_TTL = 600          # 10 minutes TTL per entry
+_segment_cache: OrderedDict = OrderedDict()   # key -> (content, content_type, timestamp)
+_segment_cache_lock = threading.Lock()
+_prefetch_in_progress: set = set()  # URLs currently being prefetched
+
+def _cache_key(url: str) -> str:
+    """Short deterministic key for a URL."""
+    return hashlib.md5(url.encode()).hexdigest()
+
+def _cache_get(url: str):
+    """Get from cache if present and not expired."""
+    key = _cache_key(url)
+    with _segment_cache_lock:
+        entry = _segment_cache.get(key)
+        if entry is None:
+            return None
+        content, ctype, ts = entry
+        if time.time() - ts > SEGMENT_CACHE_TTL:
+            _segment_cache.pop(key, None)
+            return None
+        # Move to end (most recently used)
+        _segment_cache.move_to_end(key)
+        return (content, ctype)
+
+def _cache_put(url: str, content: bytes, content_type: str):
+    """Store in cache, evicting oldest if over limit."""
+    key = _cache_key(url)
+    with _segment_cache_lock:
+        _segment_cache[key] = (content, content_type, time.time())
+        _segment_cache.move_to_end(key)
+        while len(_segment_cache) > SEGMENT_CACHE_MAX:
+            _segment_cache.popitem(last=False)
+
+def _fetch_upstream(url: str, timeout: int = 30):
+    """Fetch a URL from upstream CDN using curl_cffi for Cloudflare bypass."""
+    from curl_cffi import requests as cffi_requests
+    
+    fetch_url = url
+    
+    # If it's a storm.vodvidl.site proxy URL, bypass Cloudflare
+    parsed = urlparse(url)
+    if "storm.vodvidl.site" in parsed.netloc and "/proxy/" in parsed.path:
+        qs = parse_qs(parsed.query)
+        real_host = qs.get("host", [None])[0]
+        if real_host:
+            real_host = unquote(real_host).rstrip("/")
+            real_path = parsed.path.replace("/proxy/", "/", 1)
+            fetch_url = f"{real_host}{real_path}"
+            logging.info(f"[Proxy] Bypassing CF: {url[:50]}... -> {fetch_url[:50]}...")
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://videostr.net/",
+        "Origin": "https://videostr.net",
+    }
+    
+    res = cffi_requests.get(fetch_url, headers=headers, timeout=timeout, impersonate="chrome120")
+    return res.content, res.headers.get("Content-Type", "application/octet-stream")
+
+
+def _prefetch_segments(segment_urls: list):
+    """Background thread: prefetch a list of segment URLs into cache."""
+    for seg_url in segment_urls:
+        if _cache_get(seg_url) is not None:
+            continue  # Already cached
+        if seg_url in _prefetch_in_progress:
+            continue  # Another thread is fetching this
+        try:
+            _prefetch_in_progress.add(seg_url)
+            logging.info(f"[Prefetch] Fetching: {seg_url[-60:]}")
+            content, ctype = _fetch_upstream(seg_url, timeout=20)
+            _cache_put(seg_url, content, ctype)
+            logging.info(f"[Prefetch] Cached: {len(content)} bytes")
+        except Exception as ex:
+            logging.warning(f"[Prefetch] Failed: {seg_url[-40:]} - {ex}")
+        finally:
+            _prefetch_in_progress.discard(seg_url)
+
+
+def _extract_segment_urls_from_m3u8(m3u8_text: str, base_url: str) -> list:
+    """Parse an M3U8 manifest and return all segment URLs (absolute)."""
+    segments = []
+    for line in m3u8_text.split("\n"):
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            segments.append(urljoin(base_url, stripped))
+    return segments
+
+
 @app.get("/proxy")
-async def proxy_url(url: str):
+def proxy_url(url: str):
     """Proxy any URL to bypass CORS restrictions for HLS.js playback.
-    For storm.vodvidl.site URLs, bypasses Cloudflare by going directly to the real CDN.
-    For M3U8 files, rewrites relative URLs to absolute so HLS.js can resolve them."""
+    Features:
+    - In-memory segment cache (LRU, 200 entries, 10min TTL)
+    - Background prefetching of next segments when manifest is loaded
+    - Cloudflare bypass via curl_cffi for storm.vodvidl.site URLs
+    - M3U8 URL rewriting for absolute paths
+    """
     try:
-        from curl_cffi import requests as cffi_requests
-        from urllib.parse import urlparse, parse_qs, urljoin, unquote
-        import re as re_mod
-        
-        fetch_url = url
-        
-        # If it's a storm.vodvidl.site proxy URL, bypass Cloudflare by going directly to real CDN
-        parsed = urlparse(url)
-        if "storm.vodvidl.site" in parsed.netloc and "/proxy/" in parsed.path:
-            qs = parse_qs(parsed.query)
-            real_host = qs.get("host", [None])[0]
-            if real_host:
-                real_host = unquote(real_host).rstrip("/")
-                # Remove '/proxy/' prefix from path
-                real_path = parsed.path.replace("/proxy/", "/", 1)
-                # Build headers from URL params
-                fetch_url = f"{real_host}{real_path}"
-                logging.info(f"[Proxy] Bypassing Cloudflare: {url[:60]}... -> {fetch_url[:60]}...")
-        
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Referer": "https://videostr.net/",
-            "Origin": "https://videostr.net",
-        }
-        
-        res = cffi_requests.get(fetch_url, headers=headers, timeout=30, impersonate="chrome120")
-        
-        content_type = res.headers.get("Content-Type", "application/octet-stream")
-        content = res.content
-        
-        logging.info(f"[Proxy] Upstream response: {res.status_code}, Type: {content_type}, Size: {len(content)}")
-        
-        # If it's an M3U8 playlist, rewrite relative URLs to absolute
+        # ── Check cache first (segments only) ──
         is_m3u8 = (
-            ".m3u8" in url or 
-            "mpegurl" in content_type.lower() or
-            content[:7] == b"#EXTM3U"
+            ".m3u8" in url or
+            "mpegurl" in url.lower()
         )
+        
+        if not is_m3u8:
+            cached = _cache_get(url)
+            if cached:
+                content, content_type = cached
+                logging.info(f"[Proxy] CACHE HIT: {url[-50:]} ({len(content)} bytes)")
+                return Response(
+                    content=content,
+                    media_type=content_type,
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*",
+                        "X-Cache": "HIT",
+                    }
+                )
+        
+        # ── Fetch from upstream ──
+        content, content_type = _fetch_upstream(url)
+        
+        logging.info(f"[Proxy] Upstream: {url[-50:]} | {len(content)} bytes | {content_type}")
+        
+        # ── Detect M3U8 from content ──
+        if not is_m3u8 and content[:7] == b"#EXTM3U":
+            is_m3u8 = True
         
         if is_m3u8:
             text = content.decode("utf-8", errors="replace")
-            
-            # Normalize line endings
             text = text.replace("\r\n", "\n").replace("\r", "\n")
+            
+            # Extract segment URLs BEFORE rewriting (for prefetch)
+            segment_urls = _extract_segment_urls_from_m3u8(text, url)
+            
+            # Rewrite URLs to absolute
             lines = text.split("\n")
             rewritten = []
             for line in lines:
                 stripped = line.strip()
-                # Non-empty lines that don't start with # are URLs
                 if stripped and not stripped.startswith("#"):
                     absolute_url = urljoin(url, stripped)
                     rewritten.append(absolute_url)
                 else:
-                    # Also rewrite URI="..." attributes inside #EXT-X-MAP, #EXT-X-KEY etc.
                     def replace_uri(match):
                         quote = match.group(1)
                         uri = match.group(2)
@@ -335,8 +429,22 @@ async def proxy_url(url: str):
             
             content = "\n".join(rewritten).encode("utf-8")
             content_type = "application/vnd.apple.mpegurl"
-            preview = "\n".join(rewritten[:5])
-            logging.info(f"[Proxy] Rewrote {len(lines)} lines. First 5:\n{preview}")
+            
+            # ── Background prefetch the first N segments ──
+            # Only prefetch actual segment URLs (not variant playlist URLs which are also .m3u8)
+            ts_segments = [u for u in segment_urls if not u.endswith(".m3u8")]
+            if ts_segments:
+                # Prefetch first 5 segments immediately for instant playback start
+                prefetch_batch = ts_segments[:5]
+                t = threading.Thread(target=_prefetch_segments, args=(prefetch_batch,), daemon=True)
+                t.start()
+                logging.info(f"[Proxy] Kicked off prefetch for {len(prefetch_batch)} segments")
+            
+            preview = "\n".join(rewritten[:3])
+            logging.info(f"[Proxy] Rewrote M3U8 ({len(lines)} lines). Segments: {len(ts_segments)}")
+        else:
+            # Cache non-M3U8 responses (segments)
+            _cache_put(url, content, content_type)
         
         return Response(
             content=content,
@@ -344,11 +452,26 @@ async def proxy_url(url: str):
             headers={
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Headers": "*",
+                "X-Cache": "MISS",
             }
         )
     except Exception as ex:
         logging.error(f"Proxy error for {url}: {ex}")
         raise HTTPException(status_code=502, detail="Proxy fetch failed")
+
+
+@app.get("/proxy/cache-stats")
+def proxy_cache_stats():
+    """Debug endpoint: check segment cache status."""
+    with _segment_cache_lock:
+        total_bytes = sum(len(entry[0]) for entry in _segment_cache.values())
+        return {
+            "cached_segments": len(_segment_cache),
+            "max_segments": SEGMENT_CACHE_MAX,
+            "total_cached_mb": round(total_bytes / 1024 / 1024, 2),
+            "prefetch_in_progress": len(_prefetch_in_progress),
+        }
+
 
 if __name__ == "__main__":
     import uvicorn
